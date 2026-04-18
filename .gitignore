@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.env
+qdrant_storage/
+data/raw/*.pdf
+data/processed/*.json
+seen_hashes_*.txt
+.DS_Store
