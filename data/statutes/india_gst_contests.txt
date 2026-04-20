@@ -1,0 +1,28 @@
+# Indian Law: GST on Contests, Games of Skill, and Prize Distribution
+
+## 1. GST on Entry Fees/Participation Charges
+Under Indian GST law, organizing contests where a fee is charged is considered a supply of services. 
+- **Online Gaming & Action-Based Contests:** Effective from October 1, 2023, a uniform GST rate of **28%** is applicable on the full face value of the entry fee or deposit paid by players. This applies whether the game is a "game of skill" or a "game of chance."
+- **General Contests:** Other types of contests (quizzes, physical events) where entry fees are charged attract a GST rate of **18%** as a general service supply.
+
+## 2. GST on Prize Distribution
+- **Receipt by Winner:** The winning of a prize in money or kind by a participant does not constitute a "supply" by the winner to the organizer. Therefore, no GST is applicable on the winner upon receiving the prize.
+- **Input Tax Credit (ITC):** Organizers generally cannot claim ITC on the value of prizes distributed if they are goods, as Section 17(5)(h) of the CGST Act restricts ITC on "goods disposed of by way of gift or free samples."
+
+## 3. GST on Sponsored Prizes (Sponsorship Services)
+- **Nature of Supply:** Sponsorship is a taxable supply of service under GST. The organizer provides a promotional service to the sponsor in exchange for the prize money or goods.
+- **Reverse Charge Mechanism (RCM):** Under Notification No. 13/2017-Central Tax (Rate), GST on sponsorship services is payable under **Reverse Charge** if the sponsor (the person providing the money/prizes) is a "body corporate" or "partnership firm" located in the taxable territory. In this case, the sponsor pays the tax, not the organizer. 
+- **Exemptions:** Sponsorship of recognized sporting events by National Sports Federations is exempt under Notification 12/2017.
+
+## 4. Income Tax (TDS) Implications on Winnings
+- **Section 194B:** Any person responsible for paying winnings from a lottery, crossword puzzle, card game, or other games of any sort exceeding **INR 10,000** must deduct tax at source (TDS) at the rate of **30%** (plus applicable cess/surcharge).
+- **Non-Monetary Prizes:** If the prize is given in kind (e.g., a car, electronics), the organizer must ensure the tax is paid before releasing the prize. The market value of the prize is considered for TDS calculation.
+
+# Summary Table for Organizer
+| Item | GST Rate | Payer | Notes |
+|------|----------|-------|-------|
+| Entry fees (Mining/Gaming) | 28% | Organizer | On total amount collected |
+| Entry fees (Standard) | 18% | Organizer | On entry fee value |
+| Sponsored Prizes | 18% | Sponsor (RCM) | If sponsor is a body corporate |
+| Prize Money | 0% | - | No GST on winner |
+| Winner Winnings | 30% | Organizer (TDS) | Deducted from prize if >10k |

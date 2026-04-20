@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LexRAG | The Intelligence Terminal for Sovereign Law</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;400;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav>
+        <div class="logo">LexRAG</div>
+        <div class="nav-links">
+            <span class="dev-tag">By Evolucent AI</span>
+            <a href="https://evolucentai.com/" class="nav-btn">Inquire →</a>
+        </div>
+    </nav>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-image">
+                <img src="assets/hero.png" alt="LexRAG Sovereign Intelligence Core">
+            </div>
+            <div class="hero-content">
+                <div class="badge reveal">SVRN TERMINAL v3.2</div>
+                <h1 class="reveal">LexRAG</h1>
+                <p class="tagline reveal">The Sovereign Intelligence Terminal.</p>
+                <p class="subtitle reveal">Grounding legal precision in a high-performance architecture. Built for professionals in the UAE and India.</p>
+                <div class="cta-wrap reveal">
+                    <a href="https://evolucentai.com/" class="btn-primary">Acquire Terminal Access</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- The Evolution (V1 + V2) -->
+        <section class="evolution reveal">
+            <div class="section-label">// NARRATIVE</div>
+            <div class="split-row">
+                <div class="split-col">
+                    <h2>The Genesis of Precision.</h2>
+                    <p>LexRAG began as a high-performance RAG engine (v1)—a foundational core designed to parse and vectorize the complex nuances of Indian and UAE statutes. In v2, this intelligence was encased in a professional terminal interface, engineered for zero-latency analysis and institutional persistence.</p>
+                </div>
+                <div class="split-col stats-grid">
+                    <div class="stat-box">
+                        <span class="stat-num">v1</span>
+                        <span class="stat-label">Neural Engine</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-num">v2</span>
+                        <span class="stat-label">Genius Terminal</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Specialized Jurisdictions -->
+        <section class="jurisdictions reveal">
+            <div class="section-label">// SPECIALIZATION</div>
+            <div class="jur-row">
+                <div class="jur-card">
+                    <img src="https://flagcdn.com/in.svg" alt="India" width="40">
+                    <h3>India</h3>
+                    <ul>
+                        <li>GST & Indirect Taxation</li>
+                        <li>Indian Kanoon Case Law</li>
+                        <li>CBDT Circulars & Rulings</li>
+                    </ul>
+                </div>
+                <div class="jur-card">
+                    <img src="https://flagcdn.com/ae.svg" alt="UAE" width="40">
+                    <h3>UAE</h3>
+                    <ul>
+                        <li>Corporate Tax Framework</li>
+                        <li>FTA Federal Decrees</li>
+                        <li>MOJ Statute Library</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Use Cases -->
+        <section class="use-cases reveal">
+            <div class="section-label">// ADOPTION</div>
+            <h2>Built for the Strategists.</h2>
+            <div class="case-grid">
+                <div class="case-card">
+                    <h4>Legal Counsel</h4>
+                    <p>Rapid precedent discovery and statute cross-referencing with citation transparency.</p>
+                </div>
+                <div class="case-card">
+                    <h4>Chartered Accountants</h4>
+                    <p>Instant clarity on tax treatment, free zone regulations, and compliance statutes.</p>
+                </div>
+                <div class="case-card">
+                    <h4>Tax Consultants</h4>
+                    <p>Strategic advisory grounded in absolute legal truth, not probabilistic guesses.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Grounded Accuracy Section -->
+        <section class="grounded reveal">
+            <div class="section-label">// TECHNOLOGY</div>
+            <h2>Zero Hallucination. Absolute Grounding.</h2>
+            <p>Unlike general-purpose models, LexRAG does not guess. It retrieves, reranks, and synthesizes official law documents using a hybrid neural architecture, ensuring every answer is backed by a primary source.</p>
+            <div class="tech-tags">
+                <span>Hybrid Retrieval</span>
+                <span>Neural Reranking</span>
+                <span>Contextual Persistence</span>
+            </div>
+        </section>
+
+        <!-- Final CTA -->
+        <section class="bottom-cta reveal">
+            <div class="glow"></div>
+            <h2>Ready for Sovereign Intelligence?</h2>
+            <p>LexRAG is available for bespoke deployment. Elevate your legal operations today.</p>
+            <a href="https://evolucentai.com/" class="btn-primary">Connect with Evolucent AI</a>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <div class="logo">LexRAG</div>
+                <p>Strategic Intelligence Terminal</p>
+            </div>
+            <div class="footer-meta">
+                <span>v3.2.2</span>
+                <span>By Evolucent AI</span>
+            </div>
+            <div class="footer-legal">
+                <p>© 2024 Evolucent AI. All Rights Reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Simple reveal on scroll
+        const observerOptions = {
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    </script>
+</body>
+</html>

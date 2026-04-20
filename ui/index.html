@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LexRAG</title>
+  <link rel="stylesheet" href="/ui/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ── SETTINGS PANEL ─────────────────────────────────────────────────────── -->
+<div id="settings-overlay" class="overlay hidden" onclick="closeSettings()"></div>
+<aside id="settings-panel" class="settings-panel hidden">
+  <div class="settings-header">
+    <span>Settings</span>
+    <button class="icon-btn" onclick="closeSettings()">✕</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="settings-tabs">
+    <button class="tab-btn active" onclick="switchSettingsTab('general', this)">General</button>
+    <button class="tab-btn"        onclick="switchSettingsTab('models',  this)">Models</button>
+    <button class="tab-btn"        onclick="switchSettingsTab('custom',  this)">Custom</button>
+  </div>
+
+  <!-- General Tab -->
+  <div id="stab-general" class="stab-content">
+    <div class="settings-section">
+      <label class="settings-label">Default Provider</label>
+      <div id="s-provider-pills" class="pill-group"></div>
+    </div>
+    <div class="settings-section">
+      <label class="settings-label">Default Model</label>
+      <select id="s-model-select" class="select-input"></select>
+    </div>
+    <div class="settings-section">
+      <label class="settings-label">Jurisdiction Lock</label>
+      <p class="settings-hint">When set to "Auto", the system detects India/UAE/Both from your query.</p>
+      <div class="pill-group" id="s-jur-pills">
+        <button class="pill-btn active" data-jur="null" onclick="setJurSetting(this)">Auto-detect</button>
+        <button class="pill-btn" data-jur="India"       onclick="setJurSetting(this)">🇮🇳 India only</button>
+        <button class="pill-btn" data-jur="UAE"         onclick="setJurSetting(this)">🇦🇪 UAE only</button>
+        <button class="pill-btn" data-jur="Both"        onclick="setJurSetting(this)">🌐 Always Both</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Models Tab -->
+  <div id="stab-models" class="stab-content hidden">
+    <div class="settings-section">
+      <p class="settings-hint">Toggle which models appear in the chat model selector. At least one must remain active per provider.</p>
+    </div>
+    <div id="s-models-list"></div>
+  </div>
+
+  <!-- Custom Tab -->
+  <div id="stab-custom" class="stab-content hidden">
+    <div class="settings-section">
+      <label class="settings-label">Add Custom Model</label>
+      <p class="settings-hint">Add a model ID from Groq or OpenRouter to your active catalog.</p>
+      <div class="form-row">
+        <select id="c-provider" class="select-input" style="flex:1">
+          <option value="groq">Groq</option>
+          <option value="openrouter">OpenRouter</option>
+        </select>
+      </div>
+      <input id="c-model-id"   class="text-input" placeholder="Model ID (e.g. llama3-8b-8192)" style="margin-top:.5rem">
+      <input id="c-model-name" class="text-input" placeholder="Display name (e.g. Llama 3 8B)" style="margin-top:.5rem">
+      <button class="btn-add" onclick="addCustomModel()">Add Model</button>
+    </div>
+
+    <div class="settings-section">
+      <label class="settings-label">Custom Models</label>
+      <div id="s-custom-list"></div>
+    </div>
+  </div>
+
+  <div class="settings-footer">
+    <button class="btn-save" onclick="saveSettings()">Save Changes</button>
+  </div>
+</aside>
+
+<!-- ── MAIN LAYOUT ────────────────────────────────────────────────────────── -->
+<div class="layout">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-top">
+      <div class="logo">
+        <span class="logo-name">LexRAG</span>
+        <span class="logo-sub">By Evolucent AI</span>
+      </div>
+      <button class="new-chat-btn" onclick="newChat()"><span>+</span> New Chat</button>
+    </div>
+
+    <div class="sidebar-sessions">
+      <div class="section-label">Recent</div>
+      <div id="session-list"></div>
+    </div>
+
+    <div class="sidebar-bottom">
+      <button class="settings-trigger" onclick="openSettings()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        Settings
+      </button>
+    </div>
+  </nav>
+
+  <!-- Chat Area -->
+  <main class="chat-area">
+    <div id="messages" class="messages"></div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="empty-state">
+      <div class="empty-logo">⚖</div>
+      <h2>LexRAG</h2>
+      <p>Legal intelligence for UAE and Indian law, taxation, and compliance.</p>
+      <div class="suggestion-chips">
+        <button class="chip" onclick="useSuggestion(this)">GST on online gaming contest prizes</button>
+        <button class="chip" onclick="useSuggestion(this)">UAE VAT on financial services</button>
+        <button class="chip" onclick="useSuggestion(this)">TDS under Section 194B on winnings</button>
+        <button class="chip" onclick="useSuggestion(this)">UAE Corporate Tax free zone treatment</button>
+      </div>
+    </div>
+
+    <!-- Input Row -->
+    <div class="input-row">
+      <div class="input-shell">
+        <textarea
+          id="query-input"
+          class="query-input"
+          placeholder="Ask about law, tax, or regulations..."
+          rows="1"
+          onkeydown="handleKey(event)"
+          oninput="autoResize(this)"
+        ></textarea>
+        <div class="input-controls">
+          <div class="model-selector" id="model-selector" onclick="toggleModelDropdown(event)">
+            <span id="model-label">Groq · Llama 3.3</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            <div id="model-dropdown" class="model-dropdown hidden"></div>
+          </div>
+          <button id="send-btn" class="send-btn" onclick="sendMessage()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="/ui/app.js"></script>
+</body>
+</html>
