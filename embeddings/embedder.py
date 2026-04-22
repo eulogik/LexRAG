@@ -14,10 +14,14 @@ SPARSE_MODEL = "prithivida/Splade_PP_en_v1"
 
 class LexEmbedder:
     def __init__(self):
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        cache_path = os.path.join(root_dir, "embeddings_cache")
+        os.makedirs(cache_path, exist_ok=True)
+        
         print(f"Initializing LexEmbedder with {DENSE_MODEL} and {SPARSE_MODEL}...")
-        self.dense_model = TextEmbedding(model_name=DENSE_MODEL)
-        self.sparse_model = SparseTextEmbedding(model_name=SPARSE_MODEL)
-        storage_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "qdrant_storage")
+        self.dense_model = TextEmbedding(model_name=DENSE_MODEL, cache_dir=cache_path)
+        self.sparse_model = SparseTextEmbedding(model_name=SPARSE_MODEL, cache_dir=cache_path)
+        storage_path = os.path.join(root_dir, "qdrant_storage")
         self.client = QdrantClient(path=storage_path)
 
     def ensure_collection(self):
