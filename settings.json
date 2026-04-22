@@ -1,21 +1,18 @@
 {
-  "provider": "groq",
-  "model": "openai/gpt-oss-20b",
-  "jurisdiction_override": null,
+  "provider": "ollama",
+  "model": "llama3:latest",
+  "jurisdiction_override": "India",
   "active_models": {
     "groq": [
       "llama-3.3-70b-versatile",
-      "llama3-70b-8192",
       "qwen/qwen3-32b",
       "gemma2-9b-it",
-      "mixtral-8x7b-32768",
       "openai/gpt-oss-20b"
     ],
     "openrouter": [
-      "google/gemma-4-31b-it:free",
-      "meta-llama/llama-4-maverick:free",
       "deepseek/deepseek-r1:free",
-      "mistralai/mistral-7b-instruct:free"
+      "mistralai/mistral-7b-instruct:free",
+      "google/gemma-4-31b-it:free"
     ],
     "ollama": []
   },
