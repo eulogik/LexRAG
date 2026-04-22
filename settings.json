@@ -1,32 +1,45 @@
 {
-  "provider": "ollama",
-  "model": "llama3:latest",
+  "provider": "openrouter",
+  "model": "google/gemma-4-26b-a4b-it:free",
   "jurisdiction_override": "India",
   "active_models": {
-    "groq": [
-      "llama-3.3-70b-versatile",
-      "qwen/qwen3-32b",
-      "gemma2-9b-it",
-      "openai/gpt-oss-20b"
-    ],
     "openrouter": [
-      "deepseek/deepseek-r1:free",
-      "mistralai/mistral-7b-instruct:free",
-      "google/gemma-4-31b-it:free"
+      "google/gemma-4-26b-a4b-it:free",
+      "google/gemma-4-31b-it:free",
+      "meta-llama/llama-3.3-70b-instruct:free",
+      "qwen/qwen3-next-80b-a3b-instruct:free",
+      "openai/gpt-oss-20b:free",
+      "nvidia/llama-nemotron-embed-vl-1b-v2:free",
+      "inclusionai/ling-2.6-flash:free",
+      "nvidia/nemotron-3-nano-30b-a3b:free"
+    ],
+    "groq": [
+      "openai/gpt-oss-20b",
+      "openai/gpt-oss-120b",
+      "llama-3.1-8b-instant",
+      "llama-3.3-70b-versatile"
     ],
     "ollama": []
   },
   "custom_models": {
     "openrouter": [
       {
+        "id": "google/gemma-4-26b-a4b-it:free",
+        "name": "Gemma 4 26B (Free)"
+      },
+      {
         "id": "google/gemma-4-31b-it:free",
-        "name": "gemma-4-free"
+        "name": "Gemma 4 31B (Free)"
       }
     ],
     "groq": [
       {
         "id": "openai/gpt-oss-20b",
-        "name": "openai/gpt-oss-20b"
+        "name": "GPT-OSS 20B"
+      },
+      {
+        "id": "openai/gpt-oss-120b",
+        "name": "GPT-OSS 120B"
       }
     ]
   }
