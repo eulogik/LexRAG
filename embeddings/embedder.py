@@ -9,7 +9,7 @@ COLLECTION_NAME = "lexrag_docs_v2"
 QDRANT_URL = "http://localhost:6333"
 
 # Memory-efficient models for 1GB RAM server
-DENSE_MODEL = "intfloat/multilingual-e5-small"
+DENSE_MODEL = "BAAI/bge-small-en-v1.5"
 SPARSE_MODEL = "prithivida/Splade_PP_en_v1"
 
 _embedder = None
