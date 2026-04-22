@@ -10,8 +10,13 @@ from embeddings.embedder import search
 from sentence_transformers import CrossEncoder
 
 # ─── Reranker ────────────────────────────────────────────────────────────────
-print("Initializing Reranker...")
-reranker = CrossEncoder('BAAI/bge-reranker-base')
+_reranker = None
+def get_reranker():
+    global _reranker
+    if _reranker is None:
+        print("Initializing Reranker (Lazy)...")
+        _reranker = CrossEncoder('BAAI/bge-reranker-base')
+    return _reranker
 
 # ─── Provider Config ──────────────────────────────────────────────────────────
 OLLAMA_URL   = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/chat")
@@ -92,7 +97,7 @@ def search_and_rerank(question: str, jurisdiction: str = None, top_k: int = 5) -
         return []
     try:
         pairs  = [[question, d["text"]] for d in initial]
-        scores = reranker.predict(pairs)
+        scores = get_reranker().predict(pairs)
         for i, s in enumerate(scores):
             initial[i]["rerank_score"] = float(s)
         ranked = sorted(initial, key=lambda x: x["rerank_score"], reverse=True)

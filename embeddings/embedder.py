@@ -8,9 +8,17 @@ import os
 COLLECTION_NAME = "lexrag_docs_v2"
 QDRANT_URL = "http://localhost:6333"
 
-# Multilingual models for LexRAG
-DENSE_MODEL = "intfloat/multilingual-e5-large"
+# Memory-efficient models for 1GB RAM server
+DENSE_MODEL = "intfloat/multilingual-e5-small"
 SPARSE_MODEL = "prithivida/Splade_PP_en_v1"
+
+_embedder = None
+
+def get_embedder():
+    global _embedder
+    if _embedder is None:
+        _embedder = LexEmbedder()
+    return _embedder
 
 class LexEmbedder:
     def __init__(self):
@@ -121,8 +129,7 @@ class LexEmbedder:
             for r in results
         ]
 
-embedder = LexEmbedder()
-
-def ensure_collection(): return embedder.ensure_collection()
-def upsert_document(text, meta): return embedder.upsert_document(text, meta)
-def search(query, top_k=5, filters=None): return embedder.search(query, top_k, filters)
+# Lazy initialization wrappers
+def ensure_collection(): return get_embedder().ensure_collection()
+def upsert_document(text, meta): return get_embedder().upsert_document(text, meta)
+def search(query, top_k=5, filters=None): return get_embedder().search(query, top_k, filters)
