@@ -18,12 +18,12 @@ OLLAMA_URL   = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/chat")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3:latest")
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-OPENROUTER_MODEL   = "google/gemma-4-31b-it:free"
+OPENROUTER_MODEL   = "google/gemma-4-26b-a4b-it:free"
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-GROQ_MODEL   = "llama-3.3-70b-versatile"   # Default: no thinking, fast
+GROQ_MODEL   = "openai/gpt-oss-20b"   # High performance secondary
 
-LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "groq")
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "openrouter")
 
 # ─── Jurisdiction Detection ───────────────────────────────────────────────────
 INDIA_KEYWORDS = [
@@ -86,7 +86,7 @@ RULES:
 def search_and_rerank(question: str, jurisdiction: str = None, top_k: int = 5) -> list:
     filters = {}
     if jurisdiction and jurisdiction != "Both":
-        filters["jurisdiction"] = jurisdiction
+        filters["jurisdiction"] = [jurisdiction, "Both"]
     initial = search(question, top_k=20, filters=filters if filters else None)
     if not initial:
         return []

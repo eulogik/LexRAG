@@ -1,6 +1,6 @@
 from fastembed import TextEmbedding, SparseTextEmbedding
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, SparseVectorParams, PointStruct, Filter, FieldCondition, MatchValue, Fusion, FusionQuery, Prefetch
+from qdrant_client.models import Distance, VectorParams, SparseVectorParams, PointStruct, Filter, FieldCondition, MatchValue, MatchAny, Fusion, FusionQuery, Prefetch
 import uuid
 import json
 import os
@@ -76,7 +76,10 @@ class LexEmbedder:
         if filters:
             conditions = []
             for key, value in filters.items():
-                conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
+                if isinstance(value, list):
+                    conditions.append(FieldCondition(key=key, match=MatchAny(any=value)))
+                else:
+                    conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
             qdrant_filter = Filter(must=conditions)
 
         # Hybrid Search using Prefetch and Fusion

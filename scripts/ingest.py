@@ -64,7 +64,7 @@ if __name__ == "__main__":
     ingest_text(sample, {
         "source": "sample_v2",
         "source_type": "statute",
-        "jurisdiction": "Both",
+        "jurisdiction": "UAE",
         "doc_title": "Tax Overview UAE 2024",
         "date": "2024-01-01",
         "url": ""
