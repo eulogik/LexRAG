@@ -25,26 +25,38 @@ def setup_db():
             "created_at": str,
             "updated_at": str
         }, pk="session_id")
+    
+    # Add indexes if not exists to optimize session lookup performance
+    try:
+        db["conversations"].create_index(["session_id"], if_not_exists=True)
+        db["conversations"].create_index(["timestamp"], if_not_exists=True)
+    except Exception:
+        pass
+        
     return db
 
 def update_session_name(session_id: str, name: str):
     db = setup_db()
     now = datetime.now().isoformat()
     try:
-        db["sessions"].upsert({
-            "session_id": session_id,
-            "name": name,
-            "created_at": now,
-            "updated_at": now
-        }, pk="session_id")
-    except Exception:
-        db["sessions"].update(session_id, {"name": name, "updated_at": now})
+        exists = list(db["sessions"].rows_where("session_id = ?", [session_id]))
+        if exists:
+            db["sessions"].update(session_id, {"name": name, "updated_at": now})
+        else:
+            db["sessions"].insert({
+                "session_id": session_id,
+                "name": name,
+                "created_at": now,
+                "updated_at": now
+            })
+    except Exception as e:
+        print(f"Warning: could not update session name: {e}")
 
 def get_session_name(session_id: str) -> str:
     db = setup_db()
     try:
-        row = db["sessions"].get(session_id)
-        return row["name"] if row else session_id[:8]
+        rows = list(db["sessions"].rows_where("session_id = ?", [session_id]))
+        return rows[0]["name"] if rows else session_id[:8]
     except Exception:
         return session_id[:8]
 

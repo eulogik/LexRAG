@@ -5,7 +5,7 @@ import uuid
 import json
 import os
 
-COLLECTION_NAME = "lexrag_docs_v2"
+COLLECTION_NAME = "lexrag_docs_v3"
 QDRANT_URL = "http://localhost:6333"
 
 # Memory-efficient models for 1GB RAM server
@@ -38,7 +38,7 @@ class LexEmbedder:
             self.client.create_collection(
                 collection_name=COLLECTION_NAME,
                 vectors_config={
-                    "dense": VectorParams(size=1024, distance=Distance.COSINE)
+                    "dense": VectorParams(size=384, distance=Distance.COSINE)
                 },
                 sparse_vectors_config={
                     "sparse": SparseVectorParams(index=None)
@@ -101,12 +101,14 @@ class LexEmbedder:
                 Prefetch(
                     query=dense_query,
                     using="dense",
-                    limit=top_k
+                    limit=top_k,
+                    filter=qdrant_filter
                 ),
                 Prefetch(
                     query=sparse_query,
                     using="sparse",
-                    limit=top_k
+                    limit=top_k,
+                    filter=qdrant_filter
                 )
             ],
             query=FusionQuery(fusion=Fusion.RRF),

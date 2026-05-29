@@ -3,22 +3,24 @@ import sys
 from unstructured.partition.pdf import partition_pdf
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from embeddings.embedder import upsert_document
+import httpx
 
-def ingest_pdf(filepath: str, metadata: dict, thorough: bool = True):
-    """
-    Advanced ingestion using unstructured.io for high-fidelity partitioning.
-    """
+def is_api_running() -> bool:
+    try:
+        r = httpx.get("http://127.0.0.1:8000/health", timeout=1.0)
+        return r.status_code == 200
+    except Exception:
+        return False
+
+def _local_ingest_pdf(filepath: str, metadata: dict, thorough: bool = True):
     print(f"Starting advanced partitioning for {filepath}...")
     
     # Partitioning logic
     elements = partition_pdf(
         filename=filepath,
-        # thorough=True uses ML models for layout detection, slower but much better for legal docs
         strategy="hi_res" if thorough else "fast",
-        # Only extract text for now, but unstructured can do tables too
     )
     
-    # Group elements into chunks (unstructured does some of this, but we'll combine for RAG)
     chunks = []
     current_chunk = ""
     for el in elements:
@@ -37,7 +39,28 @@ def ingest_pdf(filepath: str, metadata: dict, thorough: bool = True):
         upsert_document(chunk, chunk_meta)
     print(f"Done: {filepath}")
 
-def ingest_text(text: str, metadata: dict):
+def ingest_pdf(filepath: str, metadata: dict, thorough: bool = True):
+    """
+    Advanced ingestion using unstructured.io for high-fidelity partitioning.
+    Routes to API if server is active to prevent lock conflict and double models in memory.
+    """
+    if is_api_running():
+        print(f"API server is active. Routing PDF ingestion for {filepath} through endpoint...")
+        try:
+            r = httpx.post("http://127.0.0.1:8000/api/ingest/pdf", json={
+                "filepath": os.path.abspath(filepath),
+                "metadata": metadata,
+                "thorough": thorough
+            }, timeout=180.0)
+            r.raise_for_status()
+            print(f"API successfully ingested {filepath}")
+            return
+        except Exception as e:
+            print(f"API Ingestion failed, falling back to local database write: {e}")
+
+    _local_ingest_pdf(filepath, metadata, thorough)
+
+def _local_ingest_text(text: str, metadata: dict):
     # Basic chunking for plain text
     words = text.split()
     chunks = []
@@ -53,6 +76,20 @@ def ingest_text(text: str, metadata: dict):
         if len(chunk.strip()) > 100:
             chunk_meta = {**metadata, "chunk_index": i, "total_chunks": len(chunks)}
             upsert_document(chunk, chunk_meta)
+
+def ingest_text(text: str, metadata: dict):
+    if is_api_running():
+        try:
+            r = httpx.post("http://127.0.0.1:8000/api/ingest", json={
+                "text": text,
+                "metadata": metadata
+            }, timeout=300.0)
+            r.raise_for_status()
+            return
+        except Exception as e:
+            print(f"API Ingestion failed, falling back to local database write: {e}")
+
+    _local_ingest_text(text, metadata)
 
 if __name__ == "__main__":
     # Test ingestion with a sample text

@@ -167,7 +167,6 @@ sqlite-utils
 srsly
 sse-starlette
 starlette
-streamlit>=1.45.0
 sympy
 tabulate
 tenacity

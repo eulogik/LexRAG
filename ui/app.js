@@ -195,11 +195,26 @@ async function loadSession(id) {
         const contentEl = wrap.querySelector('.msg-ai-content');
         // Remove cursor before setting text
         contentEl.querySelector('.cursor')?.remove();
-        contentEl.textContent = msg.content;
+        
+        // Parse JURISDICTION tag if present in history message
+        let content = msg.content || '';
+        let msgJur = 'Both';
+        const jurMatch = content.match(/JURISDICTION:\s*(India|UAE|Both|General)/i);
+        if (jurMatch) {
+          msgJur = jurMatch[1];
+          content = content.replace(/JURISDICTION:\s*(India|UAE|Both|General)/i, '').trim();
+        }
+
+        if (typeof marked !== 'undefined') {
+          contentEl.innerHTML = marked.parse(content);
+        } else {
+          contentEl.textContent = content;
+        }
+
         const outer = wrap.querySelector('.msg-ai');
         const sources = Array.isArray(msg.sources) ? msg.sources : [];
         const confidence = sources.length ? 'GROUNDED' : 'GENERAL';
-        renderMetaBar(outer, { sources, confidence, jurisdiction: 'Both' });
+        renderMetaBar(outer, { sources, confidence, jurisdiction: msgJur });
       }
     });
     scrollBottom();
@@ -429,9 +444,31 @@ function appendToken(contentEl, token) {
 }
 
 function finalizeAI(wrap, meta) {
+  const contentEl = wrap.querySelector('.msg-ai-content');
+  let content = contentEl ? contentEl.textContent : '';
+  let msgJur = meta?.jurisdiction || 'Both';
+  
+  // Parse JURISDICTION tag if present in final text
+  const jurMatch = content.match(/JURISDICTION:\s*(India|UAE|Both|General)/i);
+  if (jurMatch) {
+    msgJur = jurMatch[1];
+    content = content.replace(/JURISDICTION:\s*(India|UAE|Both|General)/i, '').trim();
+  }
+  
+  if (contentEl) {
+    if (typeof marked !== 'undefined') {
+      contentEl.innerHTML = marked.parse(content);
+    } else {
+      contentEl.textContent = content;
+    }
+  }
+  
   if (!meta) return;
   const outer = wrap.querySelector('.msg-ai');
-  if (outer) renderMetaBar(outer, meta);
+  if (outer) {
+    meta.jurisdiction = msgJur;
+    renderMetaBar(outer, meta);
+  }
 }
 
 function renderMetaBar(outer, meta) {
