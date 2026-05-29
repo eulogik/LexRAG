@@ -848,7 +848,7 @@ body {
 /* User Bubble Actions */
 .msg-user-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.25rem;
   opacity: 0;
   transition: opacity var(--transition);
 }
@@ -859,13 +859,14 @@ body {
   background: none;
   border: none;
   color: var(--fg-muted);
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.72rem;
-  font-weight: 500;
   cursor: pointer;
-  padding: 2px 6px;
+  width: 24px;
+  height: 24px;
   border-radius: 6px;
   transition: all var(--transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .bubble-action-btn:hover {
   color: var(--fg);
@@ -877,26 +878,23 @@ body {
   background: none;
   border: none;
   color: var(--fg-muted);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.6rem;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
   cursor: pointer;
-  padding: 3px 9px;
-  border-radius: 50px;
-  border: 1px solid var(--border-soft);
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
   transition: all var(--transition);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  padding: 0;
 }
 .meta-action-btn:hover {
   color: var(--fg);
-  border-color: var(--fg-muted);
+  background: var(--bg-3);
 }
 .copy-btn {
-  margin-left: 0.4rem;
+  margin-left: 0.5rem;
 }
 .retry-btn {
-  margin-left: 0.2rem;
+  margin-left: 0.15rem;
 }
