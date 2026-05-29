@@ -7,3 +7,6 @@ data/raw/*.pdf
 data/processed/*.json
 seen_hashes_*.txt
 .DS_Store
+embeddings_cache/
+scratch/
+.codegraph/

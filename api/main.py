@@ -44,34 +44,36 @@ MODEL_CATALOG = {
     "groq": [
         {"id": "llama-3.3-70b-versatile",  "name": "Llama 3.3 70B"},
         {"id": "llama-3.1-8b-instant",      "name": "Llama 3.1 8B"},
-        {"id": "qwen-2.5-coder-32b",        "name": "Qwen 2.5 Coder 32B"},
-        {"id": "qwen/qwen3-32b",            "name": "Qwen3 32B (Thinking)"},
         {"id": "gemma2-9b-it",              "name": "Gemma 2 9B"},
     ],
     "openrouter": [
-        {"id": "google/gemma-4-31b-it:free",         "name": "Gemma 4 31B"},
-        {"id": "deepseek/deepseek-r1:free",          "name": "DeepSeek R1"},
-        {"id": "qwen/qwq-32b:free",                 "name": "QwQ 32B"},
-        {"id": "meta-llama/llama-3.3-70b-instruct:free", "name": "Llama 3.3 70B"},
-        {"id": "mistralai/mistral-7b-instruct:free", "name": "Mistral 7B"},
+        {"id": "meta-llama/llama-3.3-70b-instruct:free", "name": "Llama 3.3 70B (Free)"},
+        {"id": "deepseek/deepseek-r1:free",          "name": "DeepSeek R1 (Free)"},
+        {"id": "google/gemma-2-9b-it:free",          "name": "Gemma 2 9B (Free)"},
+        {"id": "qwen/qwen-2.5-coder-32b-instruct:free", "name": "Qwen 2.5 Coder 32B (Free)"},
     ],
     "ollama": [
-        {"id": "llama3:latest",  "name": "Llama 3 (Local)"},
         {"id": "qwen3:14b",      "name": "Qwen3 14B (Local)"},
-        {"id": "mistral:latest", "name": "Mistral 7B (Local)"},
+        {"id": "llama3:latest",  "name": "Llama 3 (Local)"},
     ]
 }
 
 # Default active models if settings don't exist
 DEFAULT_ACTIVE_MODELS = {
-    "groq":       ["llama-3.3-70b-versatile", "qwen/qwen3-32b", "gemma2-9b-it"],
-    "openrouter": ["google/gemma-4-31b-it:free", "meta-llama/llama-4-maverick:free"],
-    "ollama":     ["llama3:latest"]
+    "groq":       ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"],
+    "openrouter": ["meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-r1:free", "google/gemma-2-9b-it:free"],
+    "ollama":     ["qwen3:14b", "llama3:latest"]
+}
+
+DEFAULT_PROVIDER_MODELS = {
+    "groq":       "llama-3.3-70b-versatile",
+    "openrouter": "meta-llama/llama-3.3-70b-instruct:free",
+    "ollama":     "qwen3:14b"
 }
 
 DEFAULT_SETTINGS = {
     "provider":              LLM_PROVIDER,
-    "model":                 "llama-3.3-70b-versatile",
+    "model":                 DEFAULT_PROVIDER_MODELS.get(LLM_PROVIDER, "llama-3.3-70b-versatile"),
     "jurisdiction_override": None,
     "active_models":         DEFAULT_ACTIVE_MODELS,
     "custom_models":         {}   # {"groq": [{"id": "...", "name": "..."}]}
@@ -156,6 +158,40 @@ def api_get_session(session_id: str):
 def api_delete_session(session_id: str):
     delete_session(session_id)
     return {"success": True}
+
+# ─── API: Ingestion Endpoints (Server-Centric De-confliction) ──────────────────
+class IngestTextRequest(BaseModel):
+    text: str
+    metadata: dict
+
+class IngestPDFRequest(BaseModel):
+    filepath: str
+    metadata: dict
+    thorough: Optional[bool] = True
+
+@app.post("/api/ingest")
+async def api_ingest_text(req: IngestTextRequest):
+    from scripts.ingest import _local_ingest_text
+    try:
+        await asyncio.get_event_loop().run_in_executor(
+            None, lambda: _local_ingest_text(req.text, req.metadata)
+        )
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ingest/pdf")
+async def api_ingest_pdf(req: IngestPDFRequest):
+    from scripts.ingest import _local_ingest_pdf
+    if not os.path.exists(req.filepath):
+        raise HTTPException(status_code=404, detail="PDF file not found at specified path")
+    try:
+        await asyncio.get_event_loop().run_in_executor(
+            None, lambda: _local_ingest_pdf(req.filepath, req.metadata, req.thorough)
+        )
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ─── API: Chat (SSE Streaming) ────────────────────────────────────────────────
 class ChatRequest(BaseModel):
@@ -253,22 +289,49 @@ async def chat_stream(req: ChatRequest):
                         first = False
                     yield token
 
-            got_first_token = False
-            async def timed_stream():
-                nonlocal got_first_token
+            # Periodic ping wrapper to prevent proxy timeouts
+            async def stream_with_pings():
+                queue = asyncio.Queue()
+                
+                async def producer():
+                    try:
+                        async for token in stream_with_timeout():
+                            await queue.put(("token", token))
+                    except Exception as e:
+                        await queue.put(("error", e))
+                    finally:
+                        await queue.put(("done", None))
+
+                producer_task = asyncio.create_task(producer())
+                got_first_token = False
+                
                 try:
                     async with asyncio.timeout(90):
-                        async for token in stream_with_timeout():
-                            got_first_token = True
-                            # Every token helps 'flush' the buffer, but we can also yield pings
-                            yield token
+                        while True:
+                            try:
+                                msg_type, val = await asyncio.wait_for(queue.get(), timeout=5.0)
+                                if msg_type == "token":
+                                    got_first_token = True
+                                    yield val
+                                elif msg_type == "error":
+                                    raise val
+                                elif msg_type == "done":
+                                    break
+                            except asyncio.TimeoutError:
+                                # Yield SSE comment ping directly to bypass format_sse
+                                yield ": ping\n\n"
                 except asyncio.TimeoutError:
                     if not got_first_token:
                         yield "\n\n*Response timed out. Try a smaller model or check your network.*"
+                finally:
+                    producer_task.cancel()
 
-            async for token in timed_stream():
-                full_answer += token
-                yield format_sse("token", {"content": token})
+            async for token in stream_with_pings():
+                if token.startswith(": ping"):
+                    yield token
+                else:
+                    full_answer += token
+                    yield format_sse("token", {"content": token})
 
             # ── Step 6: Citation links + save answer ───────────────────────
             full_answer = parse_citations(full_answer)

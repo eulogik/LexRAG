@@ -32,18 +32,12 @@ Run:
 # This downloads 9.3GB. Wait for it to complete fully.
 # Verify: ollama list should show qwen3:14b
 
-=== STEP 2: Start Qdrant vector database ===
+=== STEP 2: Configure Qdrant vector database ===
 
-Run:
-  docker pull qdrant/qdrant
-  docker run -d --name qdrant -p 6333:6333 -p 6334:6334 \
-    -v $(pwd)/qdrant_storage:/qdrant/storage \
-    qdrant/qdrant
+LexRAG uses Qdrant's embedded local on-disk mode via `QdrantClient(path="qdrant_storage")`.
+This runs directly inside the Python process without requiring Docker.
+No Docker installation or running container is required.
 
-# Verify Qdrant is running:
-  curl http://localhost:6333/
-# Expected response: {"title":"qdrant","version":"..."}
-# If Docker not running, open Docker Desktop app first
 
 === STEP 3: Create project structure ===
 
@@ -575,56 +569,10 @@ def health():
     return {"status": "ok"}
 ---FILE END---
 
-=== STEP 9: Create Streamlit UI ===
+=== STEP 9: [REMOVED] ===
 
-Create file: ui/app.py
-Exact content:
+This step was removed as Streamlit is no longer used by the project.
 
----FILE START: ui/app.py---
-import streamlit as st
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from api.rag_engine import query_rag
-
-st.set_page_config(page_title="LexRAG — UAE & India Legal AI", page_icon="⚖️", layout="wide")
-st.title("⚖️ LexRAG — Legal & Accounting AI")
-st.caption("UAE and Indian Law | Taxation | Case Law | Accounting Standards")
-
-with st.sidebar:
-    st.header("Search Options")
-    jurisdiction = st.selectbox("Jurisdiction", ["Both", "UAE", "India"])
-    source_type = st.selectbox("Document Type", ["All", "statute", "case", "ruling"])
-    top_k = st.slider("Documents to retrieve", 3, 10, 5)
-    st.markdown("---")
-    st.markdown("**Data Sources**")
-    st.markdown("- UAE FTA: [tax.gov.ae](https://www.tax.gov.ae)")
-    st.markdown("- UAE Laws: [uaelegislation.gov.ae](https://uaelegislation.gov.ae)")
-    st.markdown("- India GST: [cbic-gst.gov.in](https://cbic-gst.gov.in)")
-    st.markdown("- Case Law: [indiankanoon.org](https://indiankanoon.org)")
-
-question = st.text_area("Ask a legal or accounting question", height=100,
-    placeholder="e.g. What are the VAT exemptions for healthcare in UAE? / What is the penalty for late GST filing in India?")
-
-if st.button("Ask LexRAG", type="primary"):
-    if not question.strip():
-        st.warning("Please enter a question.")
-    else:
-        with st.spinner("Searching knowledge base and generating answer..."):
-            result = query_rag(question, jurisdiction, source_type if source_type != "All" else None, top_k)
-        
-        st.subheader("Answer")
-        st.markdown(result["answer"])
-        
-        if result["sources"]:
-            st.subheader(f"Sources Used ({result['context_used']} documents)")
-            for s in result["sources"]:
-                with st.expander(f"📄 {s['title'][:80]} | {s['jurisdiction']} | Score: {s['score']}"):
-                    st.write(f"**Source:** {s['source']}")
-                    st.write(f"**Type:** {s['type']}")
-                    if s["url"]:
-                        st.write(f"**URL:** {s['url']}")
----FILE END---
 
 === STEP 10: Create the daily scheduler ===
 
@@ -728,17 +676,13 @@ if __name__ == "__main__":
 
 === STEP 12: Launch everything ===
 
-Open THREE terminal tabs. In each tab, run:
+Open TWO terminal tabs. In each tab, run:
 
 TAB 1 — FastAPI backend:
   cd LexRAG && source venv/bin/activate && uvicorn api.main:app --reload --port 8000
-  # Visit http://localhost:8000/docs to see API docs
+  # Visit http://localhost:8000 to use the terminal web UI
 
-TAB 2 — Streamlit UI:
-  cd LexRAG && source venv/bin/activate && streamlit run ui/app.py --server.port 8501
-  # Visit http://localhost:8501 to use the app
-
-TAB 3 — Daily scraper (optional, run when ready):
+TAB 2 — Daily scraper (optional, run when ready):
   cd LexRAG && source venv/bin/activate && python3 scripts/daily_update.py
 
 === STEP 13: Add your own PDF documents ===
@@ -790,11 +734,8 @@ Then push:
 
 After all steps, verify:
 [ ] ollama list shows qwen3:14b
-[ ] curl http://localhost:6333/ returns Qdrant version
 [ ] python3 scripts/ingest.py prints "Sample ingestion complete"
-[ ] python3 api/rag_engine.py prints an answer about VAT/GST
-[ ] http://localhost:8000/docs shows FastAPI swagger UI
-[ ] http://localhost:8501 shows LexRAG Streamlit app
+[ ] http://localhost:8000 shows the LexRAG Terminal UI
 [ ] Asking "What is VAT rate in UAE?" returns a sourced answer
 
 === TROUBLESHOOTING ===
@@ -802,8 +743,8 @@ After all steps, verify:
 Problem: "model not found" error
 Fix: run → ollama pull qwen3:14b
 
-Problem: Qdrant connection refused
-Fix: run → docker start qdrant (if container exists) OR re-run the docker run command from Step 2
+Problem: Qdrant database locked error
+Fix: Ensure you do not have concurrent local ingestion scripts or scrapers running while the FastAPI server is active. Start the FastAPI server first, and the ingestion scripts will automatically route through it.
 
 Problem: pip install fails on sentence-transformers
 Fix: run → pip install --upgrade pip → then retry
@@ -815,4 +756,4 @@ Problem: Ollama slow on M4 MacBook Air
 Expected: qwen3:14b runs at ~15-25 tokens/sec on M4. Normal. For faster dev, use qwen3:8b instead (6.5GB).
 
 Problem: Empty answers / no context
-Fix: Run the scrapers first (Step 12, TAB 3) or ingest PDFs (Step 13) to populate the knowledge base.
+Fix: Run the scrapers first (Step 12, TAB 2) or ingest PDFs (Step 13) to populate the knowledge base.

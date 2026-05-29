@@ -23,10 +23,11 @@ OLLAMA_URL   = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/chat")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3:latest")
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-OPENROUTER_MODEL   = "google/gemma-4-26b-a4b-it:free"
+OPENROUTER_MODEL   = "meta-llama/llama-3.3-70b-instruct:free"
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-GROQ_MODEL   = "openai/gpt-oss-20b"   # High performance secondary
+GROQ_MODEL   = "llama-3.3-70b-versatile"
+
 
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "openrouter")
 
@@ -230,7 +231,12 @@ async def stream_ollama(messages: list, model: str = None):
             "POST", OLLAMA_URL,
             json={"model": model, "messages": messages, "stream": True}
         ) as resp:
+            if resp.status_code != 200:
+                err_body = await resp.aread()
+                raise Exception(f"Ollama API Error ({resp.status_code}): {err_body.decode()}")
             async for line in resp.aiter_lines():
+                if not line.strip():
+                    continue
                 try:
                     chunk = json.loads(line)
                     token = chunk.get("message", {}).get("content", "")
