@@ -411,14 +411,8 @@ function appendUserBubble(text) {
   const actions = document.createElement('div');
   actions.className = 'msg-user-actions';
   const editBtn = document.createElement('button');
-  editBtn.className = 'bubble-action-btn edit-btn';
-  editBtn.title = 'Edit prompt';
-  editBtn.innerHTML = `
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-      <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-    </svg>
-  `;
+  editBtn.className = 'meta-btn edit-btn';
+  editBtn.textContent = 'Edit';
   editBtn.onclick = () => {
     const input = document.getElementById('query-input');
     input.value = text;
@@ -529,30 +523,20 @@ function renderMetaBar(outer, meta) {
   bar.appendChild(jurBadge);
 
   // Copy button
-  const copySvg = `
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-    </svg>
-  `;
-  const checkSvg = `
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="20 6 9 17 4 12"></polyline>
-    </svg>
-  `;
   const copyBtn = document.createElement('button');
-  copyBtn.className = 'meta-action-btn copy-btn';
-  copyBtn.title = 'Copy response';
-  copyBtn.innerHTML = copySvg;
+  copyBtn.className = 'meta-btn copy-btn';
+  copyBtn.textContent = 'Copy';
   copyBtn.onclick = () => {
     const textEl = outer.querySelector('.msg-ai-content');
     const textToCopy = textEl ? textEl.innerText : '';
     navigator.clipboard.writeText(textToCopy).then(() => {
-      copyBtn.innerHTML = checkSvg;
+      copyBtn.textContent = 'Copied';
       copyBtn.style.color = 'var(--green)';
+      copyBtn.style.borderColor = 'rgba(34,197,94,0.3)';
       setTimeout(() => {
-        copyBtn.innerHTML = copySvg;
+        copyBtn.textContent = 'Copy';
         copyBtn.style.color = '';
+        copyBtn.style.borderColor = '';
       }, 2000);
     });
   };
@@ -560,14 +544,8 @@ function renderMetaBar(outer, meta) {
 
   // Retry button
   const retryBtn = document.createElement('button');
-  retryBtn.className = 'meta-action-btn retry-btn';
-  retryBtn.title = 'Retry question';
-  retryBtn.innerHTML = `
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M23 4v6h-6"></path>
-      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-    </svg>
-  `;
+  retryBtn.className = 'meta-btn retry-btn';
+  retryBtn.textContent = 'Retry';
   retryBtn.onclick = () => {
     const question = outer.dataset.question || '';
     if (question) {

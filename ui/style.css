@@ -855,46 +855,36 @@ body {
 .msg-user:hover .msg-user-actions {
   opacity: 1;
 }
-.bubble-action-btn {
-  background: none;
-  border: none;
+
+/* Shared Meta Button Pill Style */
+.meta-btn {
+  background: transparent;
+  border: 1px solid var(--border);
   color: var(--fg-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
   cursor: pointer;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+  padding: 3px 9px;
+  border-radius: 50px;
   transition: all var(--transition);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
 }
-.bubble-action-btn:hover {
+.meta-btn:hover {
   color: var(--fg);
+  border-color: var(--border-soft);
   background: var(--bg-3);
 }
 
-/* Metadata Bar Action Buttons (Copy/Retry) */
-.meta-action-btn {
-  background: none;
-  border: none;
-  color: var(--fg-muted);
-  cursor: pointer;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  transition: all var(--transition);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-.meta-action-btn:hover {
-  color: var(--fg);
-  background: var(--bg-3);
-}
 .copy-btn {
-  margin-left: 0.5rem;
+  margin-left: 0.4rem;
 }
 .retry-btn {
-  margin-left: 0.15rem;
+  margin-left: 0.2rem;
 }
