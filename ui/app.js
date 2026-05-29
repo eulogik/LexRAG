@@ -187,9 +187,11 @@ async function loadSession(id) {
   try {
     const data = await api(`/api/sessions/${id}`);
     const msgs = data.messages || [];
+    let lastUserQuestion = '';
     msgs.forEach(msg => {
       if (msg.role === 'user') {
         appendUserBubble(msg.content);
+        lastUserQuestion = msg.content;
       } else {
         const wrap = appendAIBubble();
         const contentEl = wrap.querySelector('.msg-ai-content');
@@ -212,8 +214,9 @@ async function loadSession(id) {
         }
 
         const outer = wrap.querySelector('.msg-ai');
+        if (outer) outer.dataset.question = lastUserQuestion;
         const sources = Array.isArray(msg.sources) ? msg.sources : [];
-        const confidence = sources.length ? 'GROUNDED' : 'GENERAL';
+        const confidence = sources.length ? 'GROUNDED' : 'SYNTHESIZED';
         renderMetaBar(outer, { sources, confidence, jurisdiction: msgJur });
       }
     });
@@ -258,6 +261,8 @@ async function sendMessage() {
 
   // Append AI bubble with thinking indicator
   const aiWrap    = appendAIBubble();
+  const outerEl   = aiWrap.querySelector('.msg-ai');
+  if (outerEl) outerEl.dataset.question = question;
   const contentEl = aiWrap.querySelector('.msg-ai-content');
   const thinkEl   = appendThinking(contentEl);
   let thinkGone   = false;
@@ -394,12 +399,29 @@ function finishStreaming() {
 function appendUserBubble(text) {
   const wrap = document.createElement('div');
   wrap.className = 'message-wrap';
+  
   const outer = document.createElement('div');
   outer.className = 'msg-user';
+  
   const bub = document.createElement('div');
   bub.className = 'msg-user-bubble';
   bub.textContent = text;
   outer.appendChild(bub);
+  
+  const actions = document.createElement('div');
+  actions.className = 'msg-user-actions';
+  const editBtn = document.createElement('button');
+  editBtn.className = 'bubble-action-btn edit-btn';
+  editBtn.innerHTML = `✏ Edit`;
+  editBtn.onclick = () => {
+    const input = document.getElementById('query-input');
+    input.value = text;
+    input.focus();
+    autoResize(input);
+  };
+  actions.appendChild(editBtn);
+  outer.appendChild(actions);
+  
   wrap.appendChild(outer);
   document.getElementById('messages').appendChild(wrap);
   scrollBottom();
@@ -475,16 +497,17 @@ function renderMetaBar(outer, meta) {
   const confidence  = meta.confidence  || 'GROUNDED';
   const jurisdiction = meta.jurisdiction || 'Both';
   const sources     = meta.sources      || [];
-  const isGeneral   = (confidence === 'GENERAL');
+  const isGeneral   = (confidence === 'GENERAL' || confidence === 'SYNTHESIZED');
 
   const bar = document.createElement('div');
   bar.className = 'msg-meta';
 
   // Confidence badge
   const confMap = {
-    GROUNDED: ['badge-grounded', '✓ Sourced'],
-    PARTIAL:  ['badge-partial',  '~ Partial'],
-    GENERAL:  ['badge-general',  '⚠ General Knowledge']
+    GROUNDED:    ['badge-grounded', '✓ Verified Sources'],
+    PARTIAL:     ['badge-partial',  '✦ Assisted Research'],
+    SYNTHESIZED: ['badge-general',  '🗎 Independent Analysis'],
+    GENERAL:     ['badge-general',  '🗎 Independent Analysis']
   };
   const [cls, lbl] = confMap[confidence] || confMap.PARTIAL;
   const confBadge = document.createElement('span');
@@ -499,9 +522,40 @@ function renderMetaBar(outer, meta) {
   jurBadge.textContent = `${jurIcon} ${jurisdiction}`;
   bar.appendChild(jurBadge);
 
+  // Copy button
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'meta-action-btn copy-btn';
+  copyBtn.innerHTML = `⎘ Copy`;
+  copyBtn.onclick = () => {
+    const textEl = outer.querySelector('.msg-ai-content');
+    const textToCopy = textEl ? textEl.innerText : '';
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      copyBtn.innerHTML = `✓ Copied`;
+      copyBtn.style.color = 'var(--green)';
+      setTimeout(() => {
+        copyBtn.innerHTML = `⎘ Copy`;
+        copyBtn.style.color = '';
+      }, 2000);
+    });
+  };
+  bar.appendChild(copyBtn);
+
+  // Retry button
+  const retryBtn = document.createElement('button');
+  retryBtn.className = 'meta-action-btn retry-btn';
+  retryBtn.innerHTML = `⟳ Retry`;
+  retryBtn.onclick = () => {
+    const question = outer.dataset.question || '';
+    if (question) {
+      document.getElementById('query-input').value = question;
+      sendMessage();
+    }
+  };
+  bar.appendChild(retryBtn);
+
   outer.appendChild(bar);
 
-  // Disclaimer (General only)
+  // Disclaimer (Synthesized only)
   if (isGeneral) {
     const btn = document.createElement('button');
     btn.className = 'disclaimer-btn';
@@ -511,7 +565,7 @@ function renderMetaBar(outer, meta) {
 
     const box = document.createElement('div');
     box.className = 'disclaimer-box';
-    box.textContent = 'This response is based on the model\'s general knowledge, not from LexRAG\'s verified document base. It may not reflect the most current legal positions. Always consult a qualified legal professional before acting on this information.';
+    box.textContent = 'This response is synthesized from the AI model\'s general knowledge, rather than being retrieved from LexRAG\'s verified document base. It may not reflect the most current statutory provisions. Always consult a qualified legal professional before acting.';
     btn.onclick = () => box.classList.toggle('visible');
     outer.appendChild(box);
   }

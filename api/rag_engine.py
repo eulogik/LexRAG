@@ -72,18 +72,18 @@ def auto_context_depth(query: str) -> int:
 
 # ─── Source Confidence Tiering ────────────────────────────────────────────────
 def tier_sources(docs: list) -> str:
-    if not docs: return "GENERAL"
+    if not docs: return "SYNTHESIZED"
     max_score = max(d.get("rerank_score", d.get("score", 0)) for d in docs)
-    if max_score > 0.5:  return "GROUNDED"
-    if max_score > 0.25: return "PARTIAL"
-    return "GENERAL"
+    if max_score > 0.4:  return "GROUNDED"
+    if max_score > 0.12: return "PARTIAL"
+    return "SYNTHESIZED"
 
 # ─── System Prompt ────────────────────────────────────────────────────────────
 SYSTEM_PROMPT = """You are LexRAG, an expert AI counsel for UAE and Indian law, taxation, and accounting.
 
 RULES:
 1. If context documents are provided and relevant, answer ONLY from them. Cite source title and jurisdiction.
-2. If context is insufficient or the question is off-topic (e.g., general knowledge, date/time queries), answer helpfully from your general knowledge. Prefix ALL such paragraphs with [GENERAL KNOWLEDGE].
+2. If context is insufficient or the question is off-topic, answer helpfully using your knowledge. Prefix ALL such paragraphs with [INDEPENDENT ANALYSIS].
 3. Be concise and structured. Use bullet points for lists of rules or rates.
 4. Always end your response with a one-line tag: JURISDICTION: India | UAE | Both | General
 5. Never fabricate statute numbers or case names."""
@@ -125,8 +125,8 @@ def build_prompt(query: str, context_docs: list, history: list = None, confidenc
         ) + "\n\n"
 
     fallback = ""
-    if confidence == "GENERAL":
-        fallback = "\nNote: No strong document matches found. Use your general knowledge and mark it clearly.\n"
+    if confidence == "SYNTHESIZED":
+        fallback = "\nNote: No strong document matches found. Provide an independent analysis based on your knowledge and mark paragraphs with [INDEPENDENT ANALYSIS].\n"
 
     return f"""{hist_str}CONTEXT DOCUMENTS:
 {ctx}
