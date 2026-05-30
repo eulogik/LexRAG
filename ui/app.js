@@ -725,14 +725,52 @@ function populateModelsTab() {
 
       sw.appendChild(inp);
       sw.appendChild(slider);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'model-del-btn';
+      delBtn.textContent = '×';
+      delBtn.title = 'Remove model';
+      delBtn.onclick = () => removeModelFromCatalog(prov, m.id);
+
       row.appendChild(nameEl);
       row.appendChild(idEl);
       row.appendChild(sw);
+      row.appendChild(delBtn);
       group.appendChild(row);
     });
 
     list.appendChild(group);
   }
+}
+
+function removeModelFromCatalog(provider, modelId) {
+  // Remove from allModels
+  if (allModels[provider]) {
+    allModels[provider] = allModels[provider].filter(m => m.id !== modelId);
+  }
+  // Remove from custom_models if present
+  const custom = settings.custom_models || {};
+  if (custom[provider]) {
+    custom[provider] = custom[provider].filter(m => m.id !== modelId);
+  }
+  // Remove from active_models
+  const active = settings.active_models || {};
+  if (active[provider]) {
+    active[provider] = active[provider].filter(id => id !== modelId);
+  }
+  settings.custom_models = custom;
+  settings.active_models = active;
+
+  // If removed model was the currently selected one, switch to first available
+  if (currentModel === modelId) {
+    const remaining = allModels[currentProvider] || [];
+    currentModel = remaining[0]?.id || '';
+    syncModelLabel();
+    renderModelDropdown();
+  }
+
+  saveSettings(true);
+  populateSettings();
 }
 
 // ── Custom Tab ────────────────────────────────────────────────────────────
