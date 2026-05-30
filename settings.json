@@ -1,13 +1,10 @@
 {
   "provider": "openrouter",
-  "model": "google/gemma-4-26b-a4b-it:free",
+  "model": "meta-llama/llama-3.3-70b-instruct:free",
   "jurisdiction_override": null,
   "active_models": {
     "openrouter": [
       "meta-llama/llama-3.3-70b-instruct:free",
-      "qwen/qwen-2.5-coder-32b-instruct:free",
-      "google/gemma-4-26b-a4b-it:free",
-      "google/gemma-4-31b-it:free",
       "openrouter/free"
     ],
     "groq": [
@@ -20,14 +17,6 @@
   },
   "custom_models": {
     "openrouter": [
-      {
-        "id": "google/gemma-4-26b-a4b-it:free",
-        "name": "Gemma 4 26B (Free)"
-      },
-      {
-        "id": "google/gemma-4-31b-it:free",
-        "name": "Gemma 4 31B (Free)"
-      },
       {
         "id": "openrouter/free",
         "name": "openrouter:free"
