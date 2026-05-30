@@ -252,17 +252,22 @@ async def chat_stream(req: ChatRequest):
                 print("Warning: Retrieval timed out, using general knowledge.")
 
             confidence  = tier_sources(docs)
-            sources_out = [
-                {
-                    "title":        d.get("doc_title", d.get("source", "Unknown")),
-                    "source":       d.get("source", ""),
-                    "jurisdiction": d.get("jurisdiction", ""),
-                    "type":         d.get("source_type", ""),
-                    "url":          d.get("url", ""),
-                    "score":        round(d.get("rerank_score", d.get("score", 0)), 3)
-                }
-                for d in docs
-            ]
+            # Deduplicate sources by (title, source) — same document split into many
+            # chunks will produce identical titles; keep the highest-scoring one.
+            seen_src: dict = {}
+            for d in docs:
+                key = (d.get("doc_title", d.get("source", "")), d.get("source", ""))
+                score = round(d.get("rerank_score", d.get("score", 0)), 3)
+                if key not in seen_src or score > seen_src[key]["score"]:
+                    seen_src[key] = {
+                        "title":        d.get("doc_title", d.get("source", "Unknown")),
+                        "source":       d.get("source", ""),
+                        "jurisdiction": d.get("jurisdiction", ""),
+                        "type":         d.get("source_type", ""),
+                        "url":          d.get("url", ""),
+                        "score":        score
+                    }
+            sources_out = list(seen_src.values())
 
             # ── Step 3: Emit sources immediately ───────────────────────────
             yield format_sse("sources", {
