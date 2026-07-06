@@ -23,39 +23,24 @@ tags:
 license: agpl-3.0
 language:
   - en
-metrics:
-  - retrieval-recall
-  - grounding-accuracy
 widget:
   - text: "What is the GST rate on online gaming contest prizes in India?"
   - text: "UAE VAT on financial services"
   - text: "TDS under Section 194B on winnings"
   - text: "UAE Corporate Tax free zone treatment"
-co2_eq_emissions: 0
+inference: false
 ---
 
-<div align="center">
-  <br/>
-  <h1>⚖️ LexRAG — The Legal Intelligence Terminal</h1>
-  <p>
-    <strong>Enterprise-Grade Hybrid RAG for UAE & Indian Law, Taxation & Compliance</strong>
-  </p>
-  <p>
-    <a href="https://github.com/eulogik/LexRAG/stargazers">
-      <img src="https://img.shields.io/github/stars/eulogik/LexRAG?style=flat-square&logo=github" alt="Stars"/>
-    </a>
-    <a href="https://github.com/eulogik/LexRAG/blob/main/LICENSE">
-      <img src="https://img.shields.io/github/license/eulogik/LexRAG?style=flat-square" alt="License"/>
-    </a>
-    <a href="https://pypi.org/project/lexrag/">
-      <img src="https://img.shields.io/pypi/v/lexrag?style=flat-square&logo=pypi" alt="PyPI"/>
-    </a>
-    <a href="https://huggingface.co/evolucentai">
-      <img src="https://img.shields.io/badge/%F0%9F%A4%97-Hugging%20Face-ffcc00?style=flat-square" alt="HuggingFace"/>
-    </a>
-  </p>
-  <br/>
-</div>
+<br/>
+<h1 align="center">⚖️ LexRAG — The Legal Intelligence Terminal</h1>
+<p align="center">
+  <strong>Enterprise-Grade Hybrid RAG for UAE & Indian Law, Taxation & Compliance</strong>
+  <br/><br/>
+  <a href="https://github.com/eulogik/LexRAG/stargazers"><img src="https://img.shields.io/github/stars/eulogik/LexRAG?style=flat-square&logo=github" alt="Stars"/></a>
+  <a href="https://github.com/eulogik/LexRAG/blob/main/LICENSE"><img src="https://img.shields.io/github/license/eulogik/LexRAG?style=flat-square" alt="License"/></a>
+  <a href="https://pypi.org/project/lexrag/"><img src="https://img.shields.io/pypi/v/lexrag?style=flat-square&logo=pypi" alt="PyPI"/></a>
+  <a href="https://huggingface.co/EvolucentAI/lexrag"><img src="https://img.shields.io/badge/%F0%9F%A4%97-Hugging%20Face-ffcc00?style=flat-square" alt="HuggingFace"/></a>
+</p>
 
 ---
 
