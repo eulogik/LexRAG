@@ -10,4 +10,8 @@ seen_hashes_*.txt
 embeddings_cache/
 scratch/
 .codegraph/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
 scratch/tokens.sh

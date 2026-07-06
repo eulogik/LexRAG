@@ -2,7 +2,7 @@
 title: LexRAG — Legal Intelligence Terminal
 emoji: ⚖️
 colorFrom: gray
-colorTo: black
+colorTo: gray
 sdk: gradio
 sdk_version: 5.0.1
 app_file: gradio_app.py
