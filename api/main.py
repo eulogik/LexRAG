@@ -19,9 +19,9 @@ if ROOT_DIR not in sys.path:
 
 from api.rag_engine import (
     search_and_rerank, build_prompt, SYSTEM_PROMPT, stream_provider,
-    detect_jurisdiction, auto_context_depth, tier_sources, LLM_PROVIDER,
-    GROQ_MODEL, OPENROUTER_MODEL
+    LLM_PROVIDER, GROQ_MODEL, OPENROUTER_MODEL
 )
+from api.utils import detect_jurisdiction, auto_context_depth, tier_sources
 from api.memory import (
     save_message, get_history, get_history_full,
     list_sessions, delete_session, update_session_name, get_session_name

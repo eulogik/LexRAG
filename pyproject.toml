@@ -1,0 +1,89 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lexrag"
+version = "3.3.0"
+description = "Legal Intelligence Terminal — Hybrid RAG for UAE & Indian Law, Tax and Compliance"
+readme = "README.md"
+license = { text = "AGPL-3.0-or-later" }
+requires-python = ">=3.10"
+
+authors = [
+    { name = "Evolucent AI", email = "hello@evolucentai.com" },
+]
+
+maintainers = [
+    { name = "Eulogik", email = "engineering@eulogik.com" },
+]
+
+keywords = [
+    "legal-rag", "legal-ai", "legal-research", "retrieval-augmented-generation",
+    "uae-law", "indian-law", "gst", "vat", "corporate-tax",
+    "fastembed", "qdrant", "hybrid-search", "rag",
+    "legal-tech", "compliance", "tax-research", "case-law",
+    "artificial-intelligence", "nlp", "legal-intelligence"
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Legal Industry",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Office/Business :: Financial :: Accounting",
+    "Topic :: Office/Business :: Financial",
+]
+
+dependencies = [
+    "fastapi>=0.136.0",
+    "uvicorn>=0.34.2",
+    "fastembed>=0.8.0",
+    "qdrant-client>=1.13.3",
+    "sentence-transformers>=5.4.1",
+    "httpx>=0.28.1",
+    "httpx-sse>=0.4.3",
+    "python-dotenv>=1.1.0",
+    "sqlite-utils>=0.38",
+    "unstructured>=0.16",
+    "pydantic>=2.11",
+    "PyMuPDF>=1.25",
+    "beautifulsoup4>=4.13",
+    "lxml>=5.3",
+    "schedule>=1.2",
+    "sse-starlette>=2.2",
+    "aiofiles>=24.1",
+    "orjson>=3.10",
+]
+
+[project.urls]
+Homepage = "https://github.com/eulogik/LexRAG"
+Repository = "https://github.com/eulogik/LexRAG"
+Documentation = "https://github.com/eulogik/LexRAG#readme"
+Changelog = "https://github.com/eulogik/LexRAG/releases"
+Issues = "https://github.com/eulogik/LexRAG/issues"
+Organization = "https://eulogik.com"
+Product = "https://evolucentai.com"
+HuggingFace = "https://huggingface.co/evolucentai"
+
+[project.scripts]
+lexrag = "api.main:app"
+
+[tool.setuptools]
+packages = ["api", "embeddings", "scripts", "scrapers"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["api", "embeddings", "scripts"]
+omit = ["*/tests/*", "*/venv/*"]

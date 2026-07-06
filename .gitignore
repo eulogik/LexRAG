@@ -10,3 +10,4 @@ seen_hashes_*.txt
 embeddings_cache/
 scratch/
 .codegraph/
+scratch/tokens.sh
