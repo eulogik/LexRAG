@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from embeddings.embedder import search
 from sentence_transformers import CrossEncoder
+from api.utils import detect_jurisdiction, auto_context_depth, tier_sources, strip_think_tags
 
 # ─── Reranker ────────────────────────────────────────────────────────────────
 _reranker = None
@@ -30,53 +31,6 @@ GROQ_MODEL   = "llama-3.3-70b-versatile"
 
 
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "openrouter")
-
-# ─── Jurisdiction Detection ───────────────────────────────────────────────────
-INDIA_KEYWORDS = [
-    "gst", "cgst", "sgst", "igst", "tds", "tcs", "itc", "sebi", "rbi", "india", "indian",
-    "rupee", "inr", "crore", "lakh", "section 194", "companies act", "ipc", "ibc",
-    "income tax", "delhi", "mumbai", "bombay", "chennai", "bangalore", "hyderabad",
-    "goods and services tax", "finance act", "cbdt", "gstr", "pan", "tan",
-    "fema", "rera", "msme", "nri", "oci", "itat", "nclt", "nclat"
-]
-UAE_KEYWORDS = [
-    "vat", "uae vat", "fta", "uae", "dubai", "abu dhabi", "sharjah", "ajman",
-    "dirham", "aed", "free zone", "difc", "adgm", "excise tax",
-    "federal tax authority", "corporate tax", "uae corporate", "ministry of finance",
-    "cabinet decision", "federal decree", "mainland uae", "freezone"
-]
-
-def detect_jurisdiction(query: str) -> str:
-    q = query.lower()
-    india = sum(1 for kw in INDIA_KEYWORDS if kw in q)
-    uae   = sum(1 for kw in UAE_KEYWORDS   if kw in q)
-    if india > 0 and uae == 0: return "India"
-    if uae   > 0 and india == 0: return "UAE"
-    return "Both"
-
-# ─── Auto Context Depth ───────────────────────────────────────────────────────
-COMPLEX_TERMS = [
-    "section", "act", "regulation", "notification", "circular", "judgment",
-    "case", "versus", "liability", "exemption", "penalty", "compliance",
-    "provision", "clause", "amendment", "appeal", "tribunal", "writ",
-    "holding", "ratio", "precedent", "article", "schedule"
-]
-
-def auto_context_depth(query: str) -> int:
-    wc   = len(query.split())
-    hits = sum(1 for t in COMPLEX_TERMS if t in query.lower())
-    if wc < 12 and hits < 2: return 5
-    if wc < 30 and hits < 4: return 8
-    if wc < 60 or hits < 6:  return 12
-    return 15
-
-# ─── Source Confidence Tiering ────────────────────────────────────────────────
-def tier_sources(docs: list) -> str:
-    if not docs: return "SYNTHESIZED"
-    max_score = max(d.get("rerank_score", d.get("score", 0)) for d in docs)
-    if max_score > 0.4:  return "GROUNDED"
-    if max_score > 0.12: return "PARTIAL"
-    return "SYNTHESIZED"
 
 # ─── System Prompt ────────────────────────────────────────────────────────────
 SYSTEM_PROMPT = """You are LexRAG, an expert AI counsel for UAE and Indian law, taxation, and accounting.
@@ -132,30 +86,6 @@ def build_prompt(query: str, context_docs: list, history: list = None, confidenc
 {ctx}
 {fallback}
 QUESTION: {query}"""
-
-# ─── Think-Tag State Machine ──────────────────────────────────────────────────
-def strip_think_tags(token: str, in_think: bool) -> tuple[str, bool]:
-    """Filter <think>...</think> content. Returns (clean_output, new_in_think_state)."""
-    output = ""
-    remaining = token
-    while remaining:
-        if in_think:
-            end_idx = remaining.find("</think>")
-            if end_idx == -1:
-                remaining = ""          # skip everything still in think
-            else:
-                in_think  = False
-                remaining = remaining[end_idx + len("</think>"):]
-        else:
-            start_idx = remaining.find("<think>")
-            if start_idx == -1:
-                output   += remaining
-                remaining = ""
-            else:
-                output   += remaining[:start_idx]
-                in_think  = True
-                remaining = remaining[start_idx + len("<think>"):]
-    return output, in_think
 
 # ─── Streaming Generators ────────────────────────────────────────────────────
 import httpx
