@@ -1,2 +1,0 @@
-# LexRAG Gradio Space dependencies
-gradio>=5.0.0
