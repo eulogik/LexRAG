@@ -119,7 +119,8 @@ flowchart TD
 |----------|------|-------------|
 | **GitHub** | [eulogik/LexRAG](https://github.com/eulogik/LexRAG) | Source code & issues |
 | **PyPI** | [lexrag](https://pypi.org/project/lexrag/) | Python package |
-| **HuggingFace** | [evolucentai/lexrag](https://huggingface.co/evolucentai) | Model card |
+| **HuggingFace** | [EvolucentAI/lexrag](https://huggingface.co/EvolucentAI/lexrag) | Model card & codebase |
+| **HF Space** | [EvolucentAI/lexrag-demo](https://huggingface.co/spaces/EvolucentAI/lexrag-demo) | Interactive Gradio demo |
 | **Eulogik** | [eulogik.com](https://eulogik.com) | Engineering partner |
 | **Evolucent AI** | [evolucentai.com](https://evolucentai.com) | Product & commercial |
 
