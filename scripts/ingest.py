@@ -1,8 +1,6 @@
 import os
 import sys
 
-from unstructured.partition.pdf import partition_pdf
-
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import httpx
 
@@ -17,6 +15,11 @@ def is_api_running() -> bool:
         return False
 
 def _local_ingest_pdf(filepath: str, metadata: dict, thorough: bool = True):
+    try:
+        from unstructured.partition.pdf import partition_pdf
+    except ImportError:
+        print("unstructured not installed — PDF ingest unavailable (pip install unstructured). Skipping.")
+        return
     print(f"Starting advanced partitioning for {filepath}...")
     
     # Partitioning logic

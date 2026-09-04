@@ -1,0 +1,34 @@
+GST Compliance Calendar — Returns and Due Dates (India, CGST Act 2017)
+
+GSTR-1 — Statement of Outward Supplies (Section 37, CGST Act 2017).
+Every registered person must furnish details of outward supplies in FORM GSTR-1.
+Due date for monthly filers: the 11th day of the month succeeding the tax period.
+Example: GSTR-1 for January is due on 11th February. Do not confuse with GSTR-3B.
+
+GSTR-3B — Summary Return with Tax Payment (Section 39, CGST Act 2017).
+Every registered person must furnish a summary return in FORM GSTR-3B and pay
+the tax due. Due date for monthly filers: the 20th day of the month succeeding
+the tax period. Example: GSTR-3B for January is due on 20th February.
+GSTR-3B (20th) is later than GSTR-1 (11th) for the same tax period.
+
+GSTR-9 — Annual Return (Section 44, CGST Act 2017).
+Registered persons with aggregate turnover above the notified threshold must
+furnish an annual return in FORM GSTR-9. Due date: 31st December following
+the end of the financial year. Example: GSTR-9 for FY 2024-25 is due on
+31st December 2025.
+
+GSTR-9C — Reconciliation Statement (Section 44, CGST Act 2017).
+Registered persons above the notified turnover threshold must furnish a
+self-certified reconciliation statement in FORM GSTR-9C along with the
+annual return. Due date: 31st December following the end of the financial
+year, same as GSTR-9.
+
+CMP-08 — Composition Levy Quarterly Statement (Section 10 read with Rule 62).
+Taxpayers under the composition scheme furnish FORM GST CMP-08 quarterly.
+Due date: 18th day of the month succeeding the quarter.
+
+Interest on Delayed Payment (Section 50, CGST Act 2017).
+A registered person who fails to pay tax by the due date is liable to pay
+interest at 18 percent per annum on the outstanding tax, for the period of
+delay. Interest at 18% p.a. also applies to wrongly availed and utilised
+input tax credit.
