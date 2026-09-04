@@ -1,7 +1,11 @@
 venv/
+.venv/
 __pycache__/
 *.pyc
 .env
+settings.json
+data/*.db
+data/lexrag.db
 qdrant_storage/
 data/raw/*.pdf
 data/processed/*.json
