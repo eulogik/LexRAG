@@ -11,27 +11,29 @@ button {
 }
 
 :root {
-  --bg:          #FAF8F3;
+  --font-sans:   'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-serif:  'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-mono:   'JetBrains Mono', ui-monospace, monospace;
+  --bg:          #F4F6F8;
   --bg-2:        #FFFFFF;
-  --bg-3:        #EFECE3;
-  --sidebar-bg:  #F1EEE5;
-  --border:      #E5DFD1;
-  --border-soft: #ECE7D9;
-  --border-strong: #D5CDB8;
-  --fg:          #1F1E1D;
-  --fg-2:        #44403A;
-  --fg-muted:    #8A8474;
-  --accent:      #C15F3C;
-  --accent-deep: #A34E2F;
+  --bg-3:        #E9EDF2;
+  --sidebar-bg:  #ECEFF4;
+  --border:      #DDE2E9;
+  --border-soft: #E8ECF1;
+  --border-strong: #C2C9D4;
+  --fg:          #13161B;
+  --fg-2:        #3C434E;
+  --fg-muted:    #7C8592;
+  --accent:      #8A6511;
+  --accent-deep: #6E510C;
   --amber:       #B45309;
   --green:       #15803D;
-  --send-bg:     #C15F3C;
+  --send-bg:     #13161B;
   --send-fg:     #FFFFFF;
-  --hover-wash:  rgba(31,30,29,0.055);
-  --ring:        rgba(193,95,60,0.28);
-  --shadow:      0 12px 40px rgba(74,60,40,0.14);
-  --shadow-sm:   0 2px 10px rgba(74,60,40,0.08);
-  --serif:       "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  --hover-wash:  rgba(19,22,27,0.055);
+  --ring:        rgba(138,101,17,0.25);
+  --shadow:      0 12px 40px rgba(30,41,59,0.14);
+  --shadow-sm:   0 2px 10px rgba(30,41,59,0.08);
   --sidebar-w:   260px;
   --input-h:     60px;
   --radius:      16px;
@@ -39,26 +41,26 @@ button {
 }
 
 [data-theme="dark"] {
-  --bg:          #000000;
-  --bg-2:        #050505;
-  --bg-3:        #0A0A0A;
-  --sidebar-bg:  #000000;
-  --border:      #141414;
-  --border-soft: #1e1e1e;
-  --border-strong: #2e2e2e;
-  --fg:          #ffffff;
-  --fg-2:        #c0c0c0;
-  --fg-muted:    #666666;
-  --accent:      #D97757;
-  --accent-deep: #C15F3C;
+  --bg:          #0B0D10;
+  --bg-2:        #11141A;
+  --bg-3:        #1A1F27;
+  --sidebar-bg:  #0E1116;
+  --border:      #1E242E;
+  --border-soft: #232B36;
+  --border-strong: #333E4D;
+  --fg:          #F2F4F7;
+  --fg-2:        #C3CAD4;
+  --fg-muted:    #7E8894;
+  --accent:      #D9A441;
+  --accent-deep: #B8862F;
   --amber:       #d97706;
   --green:       #22c55e;
-  --send-bg:     #ffffff;
-  --send-fg:     #000000;
+  --send-bg:     #F2F4F7;
+  --send-fg:     #0B0D10;
   --hover-wash:  rgba(255,255,255,0.06);
-  --ring:        rgba(217,119,87,0.35);
-  --shadow:      0 8px 32px rgba(0,0,0,0.6);
-  --shadow-sm:   0 2px 10px rgba(0,0,0,0.4);
+  --ring:        rgba(217,164,65,0.32);
+  --shadow:      0 12px 40px rgba(0,0,0,0.55);
+  --shadow-sm:   0 2px 10px rgba(0,0,0,0.35);
 }
 
 ::selection { background: var(--ring); }
@@ -68,7 +70,7 @@ html, body { height: 100%; overflow: hidden; }
 body {
   background: var(--bg);
   color: var(--fg);
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -99,8 +101,23 @@ body {
 }
 
 .logo { margin-bottom: 1rem; display: flex; align-items: center; gap: 0.55rem; }
-.logo-mark { flex-shrink: 0; display: block; }
-.logo-mark svg { display: block; }
+.logo-mark {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding-bottom: 2px;
+}
+[data-theme="dark"] .logo-mark { color: #141005; }
 .logo-name {
   display: block;
   font-size: 1.2rem;
@@ -109,7 +126,7 @@ body {
 }
 .logo-sub {
   display: block;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.55rem;
   color: var(--fg-muted);
   text-transform: uppercase;
@@ -124,7 +141,7 @@ body {
   color: var(--fg);
   border: 1px solid var(--border-soft);
   border-radius: 50px;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
@@ -152,7 +169,7 @@ body {
 .sidebar-sessions::-webkit-scrollbar-thumb { background: var(--border-strong); }
 
 .section-label {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.55rem;
   color: var(--fg-muted);
   text-transform: uppercase;
@@ -214,7 +231,7 @@ body {
   background: none;
   border: none;
   color: var(--fg-muted);
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   cursor: pointer;
   padding: 0.4rem 0;
@@ -225,6 +242,7 @@ body {
 /* ── Chat Area ───────────────────────────────────────────────────────────── */
 .chat-area {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -254,12 +272,17 @@ body {
 }
 .empty-state.hidden { display: none; }
 .empty-logo {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
   display: flex;
   justify-content: center;
+  font-family: var(--font-serif);
+  font-size: 3.4rem;
+  font-weight: 500;
+  color: var(--accent);
+  line-height: 1;
 }
 .empty-state h2 {
-  font-family: var(--serif);
+  font-family: var(--font-serif);
   font-size: 2.1rem;
   font-weight: 500;
   letter-spacing: -0.01em;
@@ -286,7 +309,7 @@ body {
   color: var(--fg-2);
   padding: 0.7rem 1.1rem;
   border-radius: 14px;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   line-height: 1.4;
   cursor: pointer;
@@ -327,7 +350,7 @@ body {
   margin: 1.5rem 0;
 }
 .msg-ai-content {
-  font-family: var(--serif);
+  font-family: var(--font-serif);
   font-size: 1.02rem;
   line-height: 1.75;
   color: var(--fg);
@@ -336,11 +359,11 @@ body {
   word-wrap: break-word;
 }
 .msg-ai-content p { margin-bottom: 0.6em; }
-.msg-ai-content h3, .msg-ai-content h4 { font-family: 'Outfit', sans-serif; color: var(--fg); margin: 1em 0 0.3em; }
+.msg-ai-content h3, .msg-ai-content h4 { font-family: var(--font-sans); color: var(--fg); margin: 1em 0 0.3em; }
 .msg-ai-content strong { color: var(--fg); }
 .msg-ai-content a { color: var(--accent); text-underline-offset: 3px; }
 .msg-ai-content code {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.85em;
   background: var(--bg-3);
   padding: 0.1em 0.35em;
@@ -380,7 +403,7 @@ body {
 }
 
 .badge {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -393,7 +416,7 @@ body {
 .badge-general   { border-color: rgba(217,119,6,0.35); color: var(--amber); }
 
 .badge-jur {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -433,7 +456,7 @@ body {
   background: none;
   border: none;
   color: var(--fg-muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -466,7 +489,7 @@ body {
   color: var(--fg-2);
 }
 .source-score {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--fg-muted);
   margin-left: auto;
@@ -502,11 +525,12 @@ body {
 
 .query-input {
   flex: 1;
+  min-width: 0;
   background: none;
   border: none;
   outline: none;
   color: var(--fg);
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.95rem;
   resize: none;
   max-height: 180px;
@@ -522,6 +546,7 @@ body {
   align-items: center;
   gap: 0.4rem;
   flex-shrink: 0;
+  min-width: 0;
   padding-left: 0.6rem;
 }
 
@@ -560,7 +585,7 @@ body {
 .model-dropdown.hidden { display: none; }
 
 .model-group-label {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.55rem;
   color: var(--fg-muted);
   text-transform: uppercase;
@@ -573,7 +598,7 @@ body {
   background: none;
   border: none;
   color: var(--fg-2);
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   text-align: left;
   padding: 0.45rem 0.6rem;
@@ -639,7 +664,7 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .mono-tag {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 2px;
@@ -663,7 +688,7 @@ body {
 }
 .settings-label {
   display: block;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 1.5px;
@@ -682,7 +707,7 @@ body {
   color: var(--fg-2);
   padding: 0.4rem 0.9rem;
   border-radius: 50px;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   cursor: pointer;
   transition: all var(--transition);
@@ -696,7 +721,7 @@ body {
   color: var(--fg);
   padding: 0.6rem 1rem;
   border-radius: 10px;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.85rem;
   outline: none;
   cursor: pointer;
@@ -713,7 +738,7 @@ body {
   border: none;
   padding: 0.85rem;
   border-radius: 50px;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
@@ -744,7 +769,7 @@ body {
   opacity: 0.3;
 }
 .status-text {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   color: var(--fg-muted);
   letter-spacing: 0.5px;
@@ -807,8 +832,8 @@ body {
   .message-wrap { padding: 0 1rem; }
   .input-row { padding: 0.75rem 1rem 1.25rem; }
   .input-shell { padding: 0.7rem 0.7rem 0.7rem 1rem; }
-  .model-selector { max-width: 118px; }
-  #model-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .model-selector { max-width: 118px; min-width: 0; }
+  #model-label { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 
 /* ── Settings Tabs ───────────────────────────────────────────────────────── */
@@ -826,7 +851,7 @@ body {
   background: none;
   border: none;
   color: var(--fg-muted);
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   padding: 0.75rem 0.75rem;
   cursor: pointer;
@@ -859,7 +884,7 @@ body {
   color: var(--fg);
   padding: 0.55rem 0.9rem;
   border-radius: 10px;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.85rem;
   outline: none;
 }
@@ -879,7 +904,7 @@ body {
   border: 1px solid var(--border-soft);
   border-radius: 50px;
   padding: 0.55rem;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   cursor: pointer;
   transition: all var(--transition);
@@ -891,7 +916,7 @@ body {
   padding: 1rem 1.5rem 0;
 }
 .model-provider-title {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--fg-muted);
   text-transform: uppercase;
@@ -912,7 +937,7 @@ body {
   flex: 1;
 }
 .model-toggle-id {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   color: var(--fg-muted);
   margin-right: 0.75rem;

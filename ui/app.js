@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     syncModelLabel();
     renderModelDropdown();
-    applyTheme(currentTheme());
+    applyTheme();
     trackScroll();
     await refreshSessions();
   } catch (e) {
@@ -53,25 +53,37 @@ async function api(url, opts = {}) {
   return resp.json();
 }
 
-// ══ Theme ═════════════════════════════════════════════════════════════════════
-const ICON_SUN = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`;
-const ICON_MOON = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`;
-
-function currentTheme() {
-  return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+// ══ Theme (light / dark / system; switch lives in Settings) ════════════════
+function themePreference() {
+  try { return localStorage.getItem('lexrag_theme') || 'system'; }
+  catch (e) { return 'system'; }
 }
 
-function applyTheme(t) {
-  document.documentElement.dataset.theme = t === 'dark' ? 'dark' : 'light';
-  try { localStorage.setItem('lexrag_theme', currentTheme()); } catch (e) { /* ignore */ }
-  const b = document.getElementById('theme-btn');
-  if (b) b.innerHTML = currentTheme() === 'dark' ? ICON_SUN : ICON_MOON;
+function resolveTheme(pref) {
+  if (pref === 'dark' || pref === 'light') return pref;
+  return (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+}
+
+function applyTheme(pref) {
+  const want = pref || themePreference();
+  document.documentElement.dataset.theme = resolveTheme(want);
+  try { localStorage.setItem('lexrag_theme', want); } catch (e) { /* ignore */ }
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = currentTheme() === 'dark' ? '#000000' : '#FAF8F3';
+  if (meta) meta.content = resolveTheme(want) === 'dark' ? '#0B0D10' : '#F4F6F8';
+  document.querySelectorAll('#s-theme-pills .pill-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.themePref === want));
 }
 
-function toggleTheme() {
-  applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+function setThemeSetting(btn, value) {
+  document.querySelectorAll('#s-theme-pills .pill-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  applyTheme(value);
+}
+
+if (window.matchMedia) {
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (themePreference() === 'system') applyTheme('system');
+  });
 }
 
 function renderMarkdown(el, md) {
@@ -769,6 +781,11 @@ function populateSettings() {
     });
   }
   populateSettingsModelSelect(settings.provider || currentProvider);
+
+  // Theme pills reflect stored preference
+  const pref = themePreference();
+  document.querySelectorAll('#s-theme-pills .pill-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.themePref === pref));
 
   // API key (browser-local only, never sent to /api/settings)
   const keyInput = document.getElementById('s-api-key');
