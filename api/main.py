@@ -43,6 +43,16 @@ from api.rag_engine import (
     stream_provider,
 )
 from api.security import API_KEY, SecurityMiddleware
+from api.providers import (
+    PROVIDER_PRESETS,
+    DEFAULT_PROVIDER,
+    all_providers,
+    build_catalog,
+    discover_models,
+    providers_status,
+    public_settings,
+    stamp_discovery,
+)
 from api.utils import (
     auto_context_depth,
     detect_jurisdiction,
@@ -89,44 +99,28 @@ SETTINGS_FILE = os.path.join(ROOT_DIR, "settings.json")
 app.mount("/ui",        StaticFiles(directory=UI_DIR), name="ui")
 app.mount("/marketing", StaticFiles(directory=MARKETING_DIR), name="marketing")
 
-# ─── Model Catalog ───────────────────────────────────────────────────────────
-MODEL_CATALOG = {
-    "groq": [
-        {"id": "openai/gpt-oss-120b",    "name": "GPT-OSS 120B (Recommended)"},
-        {"id": "openai/gpt-oss-20b",     "name": "GPT-OSS 20B (Fast)"},
-        {"id": "qwen/qwen3.6-27b",       "name": "Qwen3.6 27B (Reasoning)"},
-    ],
-    "openrouter": [
-        {"id": "google/gemma-4-31b-it:free", "name": "Gemma 4 31B (Free)"},
-        {"id": "nvidia/nemotron-3-super-120b-a12b:free", "name": "Nemotron-3 Super 120B (Free)"},
-        {"id": "nvidia/nemotron-3-ultra-550b-a55b:free", "name": "Nemotron-3 Ultra 550B (Free)"},
-        {"id": "z-ai/glm-5.2:free", "name": "GLM-5.2 (Free)"},
-    ],
-    "ollama": [
-        {"id": "qwen3:14b",    "name": "Qwen3 14B (Local)"},
-        {"id": "llama3.1:8b",  "name": "Llama 3.1 8B (Local)"},
-    ]
-}
+# ─── Model Catalog (provider registry + discovered/custom models) ──────────
+MODEL_CATALOG = {pid: list(p["default_models"]) for pid, p in PROVIDER_PRESETS.items()}
 
 # Default active models if settings don't exist
 DEFAULT_ACTIVE_MODELS = {
-    "groq":       ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"],
-    "openrouter": ["google/gemma-4-31b-it:free", "nvidia/nemotron-3-super-120b-a12b:free", "z-ai/glm-5.2:free"],
-    "ollama":     ["qwen3:14b", "llama3.1:8b"]
+    pid: [m["id"] for m in p["default_models"]] for pid, p in PROVIDER_PRESETS.items()
 }
 
 DEFAULT_PROVIDER_MODELS = {
-    "groq":       "openai/gpt-oss-120b",
-    "openrouter": "google/gemma-4-31b-it:free",
-    "ollama":     "qwen3:14b"
+    pid: (p["default_models"][0]["id"] if p["default_models"] else None)
+    for pid, p in PROVIDER_PRESETS.items()
 }
 
 DEFAULT_SETTINGS = {
     "provider":              LLM_PROVIDER,
-    "model":                 DEFAULT_PROVIDER_MODELS.get(LLM_PROVIDER, "openai/gpt-oss-120b"),
+    "model":                 DEFAULT_PROVIDER_MODELS.get(LLM_PROVIDER) or "openai/gpt-oss-120b",
     "jurisdiction_override": None,
     "active_models":         DEFAULT_ACTIVE_MODELS,
-    "custom_models":         {}   # {"groq": [{"id": "...", "name": "..."}]}
+    "custom_models":         {},   # {"groq": [{"id": "...", "name": "..."}]}
+    "discovered_models":     {},   # {"groq": {"fetched_at": ..., "models": [...]}}
+    "provider_keys":         {},   # {"groq": "sk-..."} — server-side only, never sent to clients
+    "custom_providers":      [],   # [{"id": "...", "name": "...", "base_url": "..."}]
 }
 
 def load_settings() -> dict:
@@ -140,22 +134,28 @@ def load_settings() -> dict:
         for p in DEFAULT_ACTIVE_MODELS:
             if p not in merged.get("active_models", {}):
                 merged.setdefault("active_models", {})[p] = DEFAULT_ACTIVE_MODELS[p]
-        # Drop saved IDs the catalog no longer knows (stale after model rotations)
-        known = {p: {m["id"] for m in MODEL_CATALOG.get(p, [])} for p in MODEL_CATALOG}
+        # Drop saved IDs the catalog no longer knows (stale after model rotations).
+        # Known = discovered (fresh) + custom + preset defaults.
+        catalog = build_catalog(merged)
+        known = {p: {m["id"] for m in models} for p, models in catalog.items()}
         active = merged.get("active_models", {})
         for p, ids in list(active.items()):
             if p in known:
-                active[p] = [i for i in ids if i in known[p]] or DEFAULT_ACTIVE_MODELS[p]
+                active[p] = [i for i in ids if i in known[p]] or [m["id"] for m in catalog[p][:3]]
         custom = merged.get("custom_models", {})
         for p, models in list(custom.items()):
             if p in known:
-                custom[p] = [m for m in models if m.get("id") not in known[p]]
-        if merged.get("provider") not in MODEL_CATALOG:
+                preset_ids = {m["id"] for m in MODEL_CATALOG.get(p, [])}
+                discovered_ids = {m["id"] for m in (merged.get("discovered_models", {}).get(p, {}).get("models") or [])}
+                custom[p] = [m for m in models
+                             if m.get("id") not in preset_ids and m.get("id") not in discovered_ids]
+        if merged.get("provider") not in all_providers(merged):
             merged["provider"] = DEFAULT_SETTINGS["provider"]
         prov = merged["provider"]
-        valid_ids = known.get(prov, set()) | {m.get("id") for m in custom.get(prov, [])}
+        valid_ids = known.get(prov, set())
         if merged.get("model") not in valid_ids:
-            merged["model"] = DEFAULT_PROVIDER_MODELS.get(prov, DEFAULT_SETTINGS["model"])
+            first = (catalog.get(prov) or [{}])[0].get("id")
+            merged["model"] = first or DEFAULT_SETTINGS["model"]
         return merged
     return DEFAULT_SETTINGS.copy()
 
@@ -172,27 +172,106 @@ def serve_app():
         _index_cache["mtime"] = mtime
     return HTMLResponse(content=_index_cache["content"])
 
-# ─── API: Models ─────────────────────────────────────────────────────────────
+# ─── API: Models & Providers ───────────────────────────────────────────────────
 @app.get("/api/models")
 def get_models():
-    """Returns full catalog plus any custom models from settings."""
+    """Full catalog: preset defaults + discovered (Refresh) + custom models."""
+    return build_catalog(load_settings())
+
+
+@app.get("/api/providers")
+def get_providers():
+    """Provider registry: labels, key status, model counts, discovery timestamps."""
+    return providers_status(load_settings())
+
+
+class ProviderKeyRequest(BaseModel):
+    key: str = ""
+
+
+@app.post("/api/providers/{provider_id}/key")
+async def set_provider_key(provider_id: str, req: ProviderKeyRequest):
+    """Store a provider API key server-side (empty string clears it). Never returned by GET."""
     settings = load_settings()
-    catalog  = {p: list(models) for p, models in MODEL_CATALOG.items()}
-    # Merge custom models
-    for provider, custom in settings.get("custom_models", {}).items():
-        if provider in catalog:
-            existing_ids = {m["id"] for m in catalog[provider]}
-            for cm in custom:
-                if cm["id"] not in existing_ids:
-                    catalog[provider].append(cm)
-        else:
-            catalog[provider] = custom
-    return catalog
+    if provider_id not in all_providers(settings):
+        raise HTTPException(status_code=404, detail=f"Unknown provider '{provider_id}'")
+    keys = settings.setdefault("provider_keys", {})
+    if req.key.strip():
+        keys[provider_id] = req.key.strip()
+    else:
+        keys.pop(provider_id, None)
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(settings, f, indent=2)
+    return {"success": True, "configured": provider_id in keys}
+
+
+@app.post("/api/providers/{provider_id}/refresh")
+async def refresh_provider_models(provider_id: str):
+    """Fetch the provider's live model list and cache it (kills catalog rot)."""
+    settings = load_settings()
+    if provider_id not in all_providers(settings):
+        raise HTTPException(status_code=404, detail=f"Unknown provider '{provider_id}'")
+    try:
+        models = await asyncio.get_event_loop().run_in_executor(
+            None, lambda: discover_models(provider_id, settings)
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Discovery failed: {e}")
+    discovered = settings.setdefault("discovered_models", {})
+    discovered[provider_id] = {"fetched_at": stamp_discovery(), "models": models}
+    active = settings.setdefault("active_models", {})
+    if provider_id not in active:
+        active[provider_id] = [m["id"] for m in models[:10]]
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(settings, f, indent=2)
+    return {"success": True, "count": len(models), "models": models[:50]}
+
+
+class CustomProviderRequest(BaseModel):
+    id: str = Field(max_length=64)
+    name: str = Field(max_length=128)
+    base_url: str = Field(max_length=512)
+    key: str = ""
+
+
+@app.post("/api/providers/custom")
+async def add_custom_provider(req: CustomProviderRequest):
+    """Register any OpenAI-compatible endpoint as a provider."""
+    import re
+    pid = re.sub(r"[^a-z0-9_-]", "", req.id.strip().lower())
+    if not pid:
+        raise HTTPException(status_code=400, detail="Provider id must be slug-like")
+    if not req.base_url.strip().startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="base_url must be http(s)")
+    settings = load_settings()
+    customs = settings.setdefault("custom_providers", [])
+    customs[:] = [c for c in customs if c.get("id") != pid]
+    customs.append({"id": pid, "name": req.name.strip() or pid, "base_url": req.base_url.strip().rstrip("/")})
+    if req.key.strip():
+        settings.setdefault("provider_keys", {})[pid] = req.key.strip()
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(settings, f, indent=2)
+    return {"success": True, "id": pid}
+
+
+@app.delete("/api/providers/custom/{provider_id}")
+async def delete_custom_provider(provider_id: str):
+    settings = load_settings()
+    customs = settings.get("custom_providers", [])
+    kept = [c for c in customs if c.get("id") != provider_id]
+    if len(kept) == len(customs):
+        raise HTTPException(status_code=404, detail="No such custom provider")
+    settings["custom_providers"] = kept
+    (settings.get("provider_keys") or {}).pop(provider_id, None)
+    (settings.get("discovered_models") or {}).pop(provider_id, None)
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(settings, f, indent=2)
+    return {"success": True}
 
 # ─── API: Settings ───────────────────────────────────────────────────────────
 @app.get("/api/settings")
 def get_settings_endpoint():
-    return load_settings()
+    return public_settings(load_settings())
 
 @app.post("/api/settings")
 async def update_settings_endpoint(request: Request):
@@ -286,8 +365,6 @@ async def api_ingest_pdf(file: UploadFile = File(...), metadata: str = Form("{}"
         except OSError: pass
 
 # ─── API: Chat (SSE Streaming) ────────────────────────────────────────────────
-VALID_PROVIDERS = ("groq", "openrouter", "ollama")
-
 class ChatRequest(BaseModel):
     question:              str = Field(max_length=8000)
     session_id:            str = Field(max_length=128)
@@ -300,7 +377,7 @@ async def chat_stream(req: ChatRequest):
     settings = load_settings()
     provider = req.provider or settings.get("provider") or LLM_PROVIDER
     model    = req.model    or settings.get("model")
-    if provider not in VALID_PROVIDERS:
+    if provider not in all_providers(settings):
         raise HTTPException(status_code=400, detail=f"Unknown provider '{provider}'")
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="Empty question")
@@ -388,7 +465,7 @@ async def chat_stream(req: ChatRequest):
             async def stream_with_timeout():
                 t_gen_start = asyncio.get_event_loop().time()
                 first = True
-                async for token in stream_provider(messages, provider, model):
+                async for token in stream_provider(messages, provider, model, settings):
                     if first:
                         log.info(f"Time to first token: {asyncio.get_event_loop().time() - t_gen_start:.3f}s")
                         first = False

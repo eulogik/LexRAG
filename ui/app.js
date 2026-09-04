@@ -8,19 +8,23 @@ let currentModelLabel   = 'Groq · GPT-OSS 120B';
 let jurisdictionOverride = null;
 let isStreaming          = false;
 let allModels            = {};   // full catalog from /api/models
+let allProviders         = {};   // provider registry from /api/providers
 let settings             = {};   // from /api/settings
 
 // ══ Bootstrap ════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    const [modelsData, settingsData] = await Promise.all([
+    const [modelsData, settingsData, providersData] = await Promise.all([
       api('/api/models'),
-      api('/api/settings')
+      api('/api/settings'),
+      api('/api/providers').catch(() => ({}))
     ]);
     allModels = modelsData;
     settings  = settingsData;
+    allProviders = providersData || {};
 
     currentProvider = settings.provider || 'groq';
+    if (!allModels[currentProvider]) currentProvider = Object.keys(allModels)[0] || 'groq';
     currentModel    = settings.model    || firstModel(currentProvider);
     jurisdictionOverride = settings.jurisdiction_override || null;
 
@@ -55,7 +59,7 @@ async function api(url, opts = {}) {
 
 // ══ Theme (light / dark / system; switch lives in Settings) ════════════════
 function themePreference() {
-  try { return localStorage.getItem('lexrag_theme') || 'system'; }
+  try { return localStorage.getItem('lexrag_theme_v2') || 'system'; }
   catch (e) { return 'system'; }
 }
 
@@ -67,7 +71,7 @@ function resolveTheme(pref) {
 function applyTheme(pref) {
   const want = pref || themePreference();
   document.documentElement.dataset.theme = resolveTheme(want);
-  try { localStorage.setItem('lexrag_theme', want); } catch (e) { /* ignore */ }
+  try { localStorage.setItem('lexrag_theme_v2', want); } catch (e) { /* ignore */ }
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.content = resolveTheme(want) === 'dark' ? '#0B0D10' : '#F4F6F8';
   document.querySelectorAll('#s-theme-pills .pill-btn').forEach(b =>
@@ -115,7 +119,15 @@ function firstModel(provider) {
 }
 
 function providerLabel(p) {
-  return { groq: 'Groq', openrouter: 'OpenRouter', ollama: 'Ollama' }[p] || p;
+  if (allProviders[p]?.label) return allProviders[p].label;
+  const known = { groq: 'Groq', openrouter: 'OpenRouter', ollama: 'Ollama' };
+  if (known[p]) return known[p];
+  return p.charAt(0).toUpperCase() + p.slice(1);
+}
+
+function providerIds() {
+  const ids = Object.keys(allModels || {});
+  return ids.length ? ids : ['groq', 'openrouter', 'ollama'];
 }
 
 function shortModelName(id, name) {
@@ -764,14 +776,15 @@ function switchSettingsTab(tab, btn) {
 
 // ── General Tab ───────────────────────────────────────────────────────────
 function populateSettings() {
-  // Provider pills
+  // Provider pills (dynamic from registry)
   const pills = document.getElementById('s-provider-pills');
   if (pills) {
     pills.innerHTML = '';
-    ['groq', 'openrouter', 'ollama'].forEach(p => {
+    providerIds().forEach(p => {
       const btn = document.createElement('button');
       btn.className = 'pill-btn' + (p === (settings.provider || currentProvider) ? ' active' : '');
       btn.textContent = providerLabel(p);
+      btn.dataset.provider = p;
       btn.onclick = () => {
         document.querySelectorAll('#s-provider-pills .pill-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
@@ -823,7 +836,16 @@ function setJurSetting(btn) {
   jurisdictionOverride = btn.dataset.jur === 'null' ? null : btn.dataset.jur;
 }
 
-// ── Models Tab ────────────────────────────────────────────────────────────
+// ── Models Tab: provider cards (key status, refresh, search, toggles) ──────
+function providerKeyState(prov) {
+  const meta = allProviders[prov];
+  if (!meta) return { dot: 'key-dot', title: 'Unknown provider' };
+  if (!meta.key_configured && meta.key_source !== 'unneeded')
+    return { dot: 'key-dot key-missing', title: 'No API key — add one below or via environment' };
+  if (meta.key_source === 'unneeded') return { dot: 'key-dot key-ok', title: 'No key needed (local)' };
+  return { dot: 'key-dot key-ok', title: 'Key configured (' + meta.key_source + ')' };
+}
+
 function populateModelsTab() {
   const list = document.getElementById('s-models-list');
   if (!list) return;
@@ -831,60 +853,160 @@ function populateModelsTab() {
 
   const activeModels = settings.active_models || {};
 
-  for (const [prov, models] of Object.entries(allModels)) {
-    if (!models.length) continue;
-    const group = document.createElement('div');
-    group.className = 'model-provider-group';
+  for (const prov of providerIds()) {
+    const models = allModels[prov] || [];
+    const meta = allProviders[prov] || {};
+    const ks = providerKeyState(prov);
+
+    const card = document.createElement('div');
+    card.className = 'provider-card';
+
+    const head = document.createElement('div');
+    head.className = 'provider-card-head';
 
     const title = document.createElement('div');
-    title.className = 'model-provider-title';
-    title.textContent = providerLabel(prov);
-    group.appendChild(title);
+    title.className = 'provider-card-title';
+    const dot = document.createElement('span');
+    dot.className = ks.dot;
+    dot.title = ks.title;
+    title.appendChild(dot);
+    const nameEl = document.createElement('span');
+    nameEl.textContent = providerLabel(prov);
+    title.appendChild(nameEl);
+    const count = document.createElement('span');
+    count.className = 'provider-card-count';
+    count.textContent = `${models.length} models${meta.discovered_at ? ' · live ' + meta.discovered_at.slice(0, 10) : ''}`;
+    title.appendChild(count);
+    head.appendChild(title);
 
+    const refresh = document.createElement('button');
+    refresh.className = 'mini-btn';
+    refresh.textContent = 'Refresh';
+    refresh.title = 'Fetch this provider\u2019s live model list';
+    refresh.onclick = async () => {
+      refresh.disabled = true;
+      refresh.textContent = '…';
+      try {
+        const res = await api(`/api/providers/${prov}/refresh`, { method: 'POST' });
+        const fresh = await api('/api/models');
+        const psettings = await api('/api/settings');
+        allModels = fresh;
+        settings = { ...settings, ...psettings };
+        populateSettings();
+        renderModelDropdown();
+      } catch (e) {
+        alert('Refresh failed: ' + e.message);
+      }
+    };
+    head.appendChild(refresh);
+    card.appendChild(head);
+
+    if (meta.key_source !== 'unneeded') {
+      const keyRow = document.createElement('div');
+      keyRow.className = 'provider-key-row';
+      const keyInput = document.createElement('input');
+      keyInput.type = 'password';
+      keyInput.className = 'text-input provider-key-input';
+      keyInput.placeholder = meta.key_configured ? 'Key saved (enter new to replace)' : 'Paste API key…';
+      keyInput.autocomplete = 'off';
+      const keySave = document.createElement('button');
+      keySave.className = 'mini-btn';
+      keySave.textContent = 'Save';
+      keySave.onclick = async () => {
+        if (!keyInput.value.trim()) return;
+        await api(`/api/providers/${prov}/key`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: keyInput.value.trim() })
+        });
+        const pdata = await api('/api/providers').catch(() => ({}));
+        if (pdata && pdata[prov]) allProviders = pdata;
+        populateSettings();
+      };
+      keyRow.appendChild(keyInput);
+      keyRow.appendChild(keySave);
+      if (meta.key_configured && meta.key_source === 'settings') {
+        const keyClear = document.createElement('button');
+        keyClear.className = 'mini-btn mini-danger';
+        keyClear.textContent = 'Clear';
+        keyClear.onclick = async () => {
+          await api(`/api/providers/${prov}/key`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: '' })
+          });
+          const pdata = await api('/api/providers').catch(() => ({}));
+          if (pdata && pdata[prov]) allProviders = pdata;
+          populateSettings();
+        };
+        keyRow.appendChild(keyClear);
+      }
+      card.appendChild(keyRow);
+    }
+
+    const search = document.createElement('input');
+    search.className = 'text-input provider-search';
+    search.placeholder = 'Filter models…';
+    card.appendChild(search);
+
+    const body = document.createElement('div');
+    body.className = 'provider-model-list';
     const activeSet = new Set(activeModels[prov] || models.map(m => m.id));
 
-    models.forEach(m => {
-      const row = document.createElement('div');
-      row.className = 'model-toggle-row';
+    const renderRows = (filter) => {
+      body.innerHTML = '';
+      const shown = models.filter(m =>
+        !filter || m.id.toLowerCase().includes(filter) || (m.name || '').toLowerCase().includes(filter));
+      if (!shown.length) {
+        body.innerHTML = '<div class="provider-empty">No models — hit Refresh to fetch the live list, or add one under Custom.</div>';
+        return;
+      }
+      shown.forEach(m => {
+        const row = document.createElement('div');
+        row.className = 'model-toggle-row';
 
-      const nameEl = document.createElement('span');
-      nameEl.className = 'model-toggle-name';
-      nameEl.textContent = m.name;
+        const nameEl2 = document.createElement('span');
+        nameEl2.className = 'model-toggle-name';
+        nameEl2.textContent = m.name;
 
-      const idEl = document.createElement('span');
-      idEl.className = 'model-toggle-id';
-      idEl.textContent = m.id.split('/').pop().split(':')[0];
+        const idEl = document.createElement('span');
+        idEl.className = 'model-toggle-id';
+        idEl.textContent = m.id.split('/').pop().split(':')[0];
 
-      const sw = document.createElement('label');
-      sw.className = 'toggle-switch';
-      sw.title = activeSet.has(m.id) ? 'Active — click to deactivate' : 'Inactive — click to activate';
+        const sw = document.createElement('label');
+        sw.className = 'toggle-switch';
+        sw.title = activeSet.has(m.id) ? 'Active — click to deactivate' : 'Inactive — click to activate';
 
-      const inp = document.createElement('input');
-      inp.type    = 'checkbox';
-      inp.checked = activeSet.has(m.id);
-      inp.dataset.provider = prov;
-      inp.dataset.modelId  = m.id;
+        const inp = document.createElement('input');
+        inp.type    = 'checkbox';
+        inp.checked = activeSet.has(m.id);
+        inp.dataset.provider = prov;
+        inp.dataset.modelId  = m.id;
 
-      const slider = document.createElement('span');
-      slider.className = 'toggle-slider';
+        const slider = document.createElement('span');
+        slider.className = 'toggle-slider';
 
-      sw.appendChild(inp);
-      sw.appendChild(slider);
+        sw.appendChild(inp);
+        sw.appendChild(slider);
 
-      const delBtn = document.createElement('button');
-      delBtn.className = 'model-del-btn';
-      delBtn.textContent = '×';
-      delBtn.title = 'Remove model';
-      delBtn.onclick = () => removeModelFromCatalog(prov, m.id);
+        const delBtn = document.createElement('button');
+        delBtn.className = 'model-del-btn';
+        delBtn.textContent = '×';
+        delBtn.title = 'Remove model';
+        delBtn.onclick = () => removeModelFromCatalog(prov, m.id);
 
-      row.appendChild(nameEl);
-      row.appendChild(idEl);
-      row.appendChild(sw);
-      row.appendChild(delBtn);
-      group.appendChild(row);
-    });
+        row.appendChild(nameEl2);
+        row.appendChild(idEl);
+        row.appendChild(sw);
+        row.appendChild(delBtn);
+        body.appendChild(row);
+      });
+    };
+    search.oninput = () => renderRows(search.value.trim().toLowerCase());
+    renderRows('');
+    card.appendChild(body);
 
-    list.appendChild(group);
+    list.appendChild(card);
   }
 }
 
@@ -920,6 +1042,15 @@ function removeModelFromCatalog(provider, modelId) {
 
 // ── Custom Tab ────────────────────────────────────────────────────────────
 function populateCustomTab() {
+  const provSel = document.getElementById('c-provider');
+  if (provSel && !provSel.options.length) {
+    providerIds().forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = providerLabel(p);
+      provSel.appendChild(opt);
+    });
+  }
   const list = document.getElementById('s-custom-list');
   if (!list) return;
   list.innerHTML = '';
@@ -997,15 +1128,41 @@ async function removeCustomModel(provider, modelId) {
   populateSettings();
 }
 
+async function addCustomProvider() {
+  const id   = document.getElementById('p-provider-id').value.trim();
+  const name = document.getElementById('p-provider-name').value.trim();
+  const url  = document.getElementById('p-provider-url').value.trim();
+  const key  = document.getElementById('p-provider-key').value.trim();
+  if (!id || !url) { alert('Provider ID and base URL are required.'); return; }
+  try {
+    await api('/api/providers/custom', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, name: name || id, base_url: url, key })
+    });
+    document.getElementById('p-provider-id').value = '';
+    document.getElementById('p-provider-name').value = '';
+    document.getElementById('p-provider-url').value = '';
+    document.getElementById('p-provider-key').value = '';
+    const [fresh, psettings, pdata] = await Promise.all([
+      api('/api/models'), api('/api/settings'), api('/api/providers').catch(() => ({}))
+    ]);
+    allModels = fresh;
+    settings = psettings;
+    if (pdata && Object.keys(pdata).length) allProviders = pdata;
+    syncModelLabel();
+    renderModelDropdown();
+    populateSettings();
+  } catch (e) {
+    alert('Add provider failed: ' + e.message);
+  }
+}
+
 async function saveSettings(skipClose = false) {
   // Read active provider from pills
   const activePill = document.querySelector('#s-provider-pills .pill-btn.active');
-  const provLabels = ['groq', 'openrouter', 'ollama'];
   let selProvider = settings.provider || currentProvider;
-  if (activePill) {
-    const idx = [...document.querySelectorAll('#s-provider-pills .pill-btn')].indexOf(activePill);
-    if (idx >= 0) selProvider = provLabels[idx];
-  }
+  if (activePill?.dataset.provider) selProvider = activePill.dataset.provider;
 
   const selModel = document.getElementById('s-model-select')?.value || currentModel;
 

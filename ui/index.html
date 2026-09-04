@@ -13,7 +13,7 @@
   <meta name="theme-color" content="#F4F6F8">
   <script>
     try {
-      var p = localStorage.getItem('lexrag_theme') || 'system';
+      var p = localStorage.getItem('lexrag_theme_v2') || 'system';
       var t = (p === 'dark' || p === 'light') ? p
         : (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
       document.documentElement.dataset.theme = t;
@@ -60,9 +60,9 @@
       <label class="settings-label">Appearance</label>
       <p class="settings-hint">Follows your system by default.</p>
       <div class="pill-group" id="s-theme-pills">
-        <button class="pill-btn" data-theme-pref="light" onclick="setThemeSetting(this)">Light</button>
-        <button class="pill-btn" data-theme-pref="system" onclick="setThemeSetting(this)">System</button>
-        <button class="pill-btn" data-theme-pref="dark" onclick="setThemeSetting(this)">Dark</button>
+        <button class="pill-btn" data-theme-pref="light" onclick="setThemeSetting(this, 'light')">Light</button>
+        <button class="pill-btn" data-theme-pref="system" onclick="setThemeSetting(this, 'system')">System</button>
+        <button class="pill-btn" data-theme-pref="dark" onclick="setThemeSetting(this, 'dark')">Dark</button>
       </div>
     </div>
     <div class="settings-section">
@@ -89,16 +89,23 @@
   <div id="stab-custom" class="stab-content hidden">
     <div class="settings-section">
       <label class="settings-label">Add Custom Model</label>
-      <p class="settings-hint">Add a model ID from Groq or OpenRouter to your active catalog.</p>
+      <p class="settings-hint">Add any model ID to an existing provider's catalog.</p>
       <div class="form-row">
-        <select id="c-provider" class="select-input" style="flex:1">
-          <option value="groq">Groq</option>
-          <option value="openrouter">OpenRouter</option>
-        </select>
+        <select id="c-provider" class="select-input" style="flex:1"></select>
       </div>
       <input id="c-model-id"   class="text-input" placeholder="Model ID (e.g. openai/gpt-oss-20b)" style="margin-top:.5rem">
-      <input id="c-model-name" class="text-input" placeholder="Display name (e.g. Llama 3 8B)" style="margin-top:.5rem">
+      <input id="c-model-name" class="text-input" placeholder="Display name (e.g. GPT-OSS 20B)" style="margin-top:.5rem">
       <button class="btn-add" onclick="addCustomModel()">Add Model</button>
+    </div>
+
+    <div class="settings-section">
+      <label class="settings-label">Add Custom Provider</label>
+      <p class="settings-hint">Any OpenAI-compatible endpoint (base URL + optional key).</p>
+      <input id="p-provider-id"   class="text-input" placeholder="ID (e.g. mycloud)">
+      <input id="p-provider-name" class="text-input" placeholder="Display name" style="margin-top:.5rem">
+      <input id="p-provider-url"  class="text-input" placeholder="Base URL (https://…/v1)" style="margin-top:.5rem">
+      <input id="p-provider-key" type="password" class="text-input" placeholder="API key (optional)" style="margin-top:.5rem" autocomplete="off">
+      <button class="btn-add" onclick="addCustomProvider()">Add Provider</button>
     </div>
 
     <div class="settings-section">

@@ -37,10 +37,8 @@ def get_reranker():
 OLLAMA_URL   = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/chat")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:14b")
 
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 OPENROUTER_MODEL   = "google/gemma-4-31b-it:free"
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_MODEL   = "openai/gpt-oss-120b"
 
 
@@ -105,21 +103,25 @@ QUESTION: {query}"""
 import httpx
 
 
-async def stream_groq(messages: list, model: str = None):
-    model    = model or GROQ_MODEL
+async def stream_openai_compatible(messages: list, model: str, base_url: str,
+                                   api_key: str = "", extra_headers: dict = None,
+                                   label: str = "provider", timeout: float = 120.0):
+    headers = {"Content-Type": "application/json", **(extra_headers or {})}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     in_think = False
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    async with httpx.AsyncClient(timeout=timeout) as client:
         async with client.stream(
-            "POST", "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+            "POST", base_url.rstrip("/") + "/chat/completions",
+            headers=headers,
             json={"model": model, "messages": messages, "stream": True}
         ) as resp:
             if resp.status_code != 200:
                 err_body = await resp.aread()
                 try: err_json = json.loads(err_body)
                 except Exception: err_json = {"error": {"message": err_body.decode()}}
-                msg = err_json.get("error", {}).get("message", "Unknown Groq error")
-                raise Exception(f"Groq API Error ({resp.status_code}): {msg}")
+                msg = err_json.get("error", {}).get("message", "Unknown error")
+                raise Exception(f"{label} API Error ({resp.status_code}): {msg}")
 
             async for line in resp.aiter_lines():
                 if not line.startswith("data: "): continue
@@ -128,7 +130,7 @@ async def stream_groq(messages: list, model: str = None):
                 try:
                     pdata = json.loads(data)
                     if "error" in pdata:
-                        raise Exception(f"Groq Stream Error: {pdata['error'].get('message', 'Unknown')}")
+                        raise Exception(f"{label} Stream Error: {pdata['error'].get('message', 'Unknown')}")
                     token = pdata["choices"][0]["delta"].get("content", "")
                     if not token: continue
                     clean, in_think = strip_think_tags(token, in_think)
@@ -137,43 +139,13 @@ async def stream_groq(messages: list, model: str = None):
                     if "Stream Error" in str(e) or "API Error" in str(e): raise e
                     pass
 
-async def stream_openrouter(messages: list, model: str = None):
-    model    = model or OPENROUTER_MODEL
-    in_think = False
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        async with client.stream(
-            "POST", "https://openrouter.ai/api/v1/chat/completions",
-            headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}", "Content-Type": "application/json"},
-            json={"model": model, "messages": messages, "stream": True}
-        ) as resp:
-            if resp.status_code != 200:
-                err_body = await resp.aread()
-                try: err_json = json.loads(err_body)
-                except Exception: err_json = {"error": {"message": err_body.decode()}}
-                msg = err_json.get("error", {}).get("message", "Unknown OpenRouter error")
-                raise Exception(f"OpenRouter API Error ({resp.status_code}): {msg}")
-
-            async for line in resp.aiter_lines():
-                if not line.startswith("data: "): continue
-                data = line[6:]
-                if data.strip() == "[DONE]": break
-                try:
-                    pdata = json.loads(data)
-                    if "error" in pdata:
-                        raise Exception(f"OpenRouter Stream Error: {pdata['error'].get('message', 'Unknown')}")
-                    token = pdata["choices"][0]["delta"].get("content", "")
-                    if not token: continue
-                    clean, in_think = strip_think_tags(token, in_think)
-                    if clean: yield clean
-                except Exception as e:
-                    if "Stream Error" in str(e) or "API Error" in str(e): raise e
-                    pass
-
-async def stream_ollama(messages: list, model: str = None):
+async def stream_ollama(messages: list, model: str = None, base_url: str = None):
     model = model or OLLAMA_MODEL
+    base_url = (base_url or OLLAMA_URL).rstrip("/")
+    url = base_url if base_url.endswith("/api/chat") else base_url + "/api/chat"
     async with httpx.AsyncClient(timeout=180.0) as client:
         async with client.stream(
-            "POST", OLLAMA_URL,
+            "POST", url,
             json={"model": model, "messages": messages, "stream": True}
         ) as resp:
             if resp.status_code != 200:
@@ -190,15 +162,42 @@ async def stream_ollama(messages: list, model: str = None):
                 except Exception:
                     pass
 
-async def stream_provider(messages: list, provider: str, model: str = None):
-    if provider == "groq":
-        async for t in stream_groq(messages, model): yield t
-    elif provider == "openrouter":
-        async for t in stream_openrouter(messages, model): yield t
-    elif provider == "ollama":
-        async for t in stream_ollama(messages, model): yield t
-    else:
-        async for t in stream_groq(messages, model): yield t
+async def stream_provider(messages: list, provider: str, model: str = None, settings: dict = None):
+    from api.providers import provider_config
+    cfg = provider_config(provider, settings or {})
+    if cfg["kind"] == "ollama":
+        async for t in stream_ollama(messages, model, cfg["base_url"]): yield t
+        return
+    extra = {"HTTP-Referer": "https://github.com/eulogik/LexRAG"} if provider == "openrouter" else None
+    async for t in stream_openai_compatible(
+            messages, model or _default_model(provider), cfg["base_url"],
+            cfg["api_key"], extra_headers=extra, label=cfg["label"]): yield t
+
+
+def _default_model(provider: str) -> str:
+    return {"groq": GROQ_MODEL, "openrouter": OPENROUTER_MODEL,
+            "ollama": OLLAMA_MODEL}.get(provider, GROQ_MODEL)
+
+
+def complete_once(provider: str, model: str, messages: list, settings: dict = None,
+                  timeout: float = 60.0) -> str:
+    import httpx as _h
+    from api.providers import provider_config
+    cfg = provider_config(provider, settings or {})
+    headers = {"Content-Type": "application/json"}
+    if cfg["api_key"]:
+        headers["Authorization"] = f"Bearer {cfg['api_key']}"
+    if cfg["kind"] == "ollama":
+        base = cfg["base_url"]
+        url = base if base.endswith("/api/chat") else base + "/api/chat"
+        r = _h.Client(timeout=timeout).post(
+            url, json={"model": model, "messages": messages, "stream": False}).json()
+        return r.get("message", {}).get("content", "")
+    r = _h.Client(timeout=timeout).post(
+        cfg["base_url"] + "/chat/completions",
+        headers=headers,
+        json={"model": model, "messages": messages}).json()
+    return r["choices"][0]["message"]["content"]
 
 # ─── Legacy sync query (CLI) ──────────────────────────────────────────────────
 def query_rag(question: str, jurisdiction: str = None, source_type: str = None,
@@ -207,8 +206,7 @@ def query_rag(question: str, jurisdiction: str = None, source_type: str = None,
     from api.memory import get_history, save_message
     from api.utils import parse_citations
     provider   = provider or LLM_PROVIDER
-    model      = model or {"groq": GROQ_MODEL, "openrouter": OPENROUTER_MODEL,
-                           "ollama": OLLAMA_MODEL}.get(provider, GROQ_MODEL)
+    model      = model or _default_model(provider)
     top_k      = top_k or auto_context_depth(question)
     jurisdiction = jurisdiction or detect_jurisdiction(question)
     filters = {"source_type": [source_type]} if source_type else None
@@ -220,21 +218,7 @@ def query_rag(question: str, jurisdiction: str = None, source_type: str = None,
     prompt     = build_prompt(question, docs, history, confidence)
     messages   = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
     try:
-        import httpx as _h
-        if provider == "groq":
-            r = _h.Client(timeout=60).post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
-                json={"model": model, "messages": messages}
-            ).json()["choices"][0]["message"]["content"]
-        elif provider == "openrouter":
-            r = _h.Client(timeout=60).post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}"},
-                json={"model": model, "messages": messages}
-            ).json()["choices"][0]["message"]["content"]
-        else:
-            r = "Provider not supported in sync mode."
+        r = complete_once(provider, model, messages)
         r = parse_citations(r)
     except Exception as e:
         r = f"Error: {e}"

@@ -106,8 +106,24 @@ Full model catalog (+ server-side custom models), grouped by provider:
 
 ## Settings
 
-- `GET /api/settings` → `{"provider","model","jurisdiction_override","active_models","custom_models"}`
+- `GET /api/settings` → `{"provider","model","jurisdiction_override","active_models","custom_models","discovered_models","custom_providers","provider_keys_set"}`
+  (provider keys are write-only: the GET response only reports `provider_keys_set: {"groq": true}` flags, never values)
 - `POST /api/settings` with any subset; `active_models`/`custom_models` deep-merge.
+
+## Providers
+
+Nine built-in presets (groq, openrouter, ollama, openai, deepseek, mistral,
+together, fireworks, xai) plus user-registered custom providers
+(any OpenAI-compatible `base_url`). Keys resolve settings → environment.
+
+- `GET /api/providers` → `{id: {label, kind, custom, key_configured, key_source, model_count, discovered_at}}`
+  (`key_source`: `settings` | `env` | `none` | `unneeded` for keyless local providers)
+- `POST /api/providers/{id}/refresh` → fetches the provider's **live** model list
+  and caches it (`{"success": true, "count": N}`); use this instead of hand-typing IDs
+- `POST /api/providers/{id}/key` with `{"key": "…"}` stores a key server-side
+  (empty string clears it); values are never returned by any GET
+- `POST /api/providers/custom` with `{"id","name","base_url","key?"}` registers
+  a custom endpoint; `DELETE /api/providers/custom/{id}` removes it
 
 ## Sessions
 

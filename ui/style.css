@@ -912,6 +912,83 @@ body {
 .btn-add:hover { background: var(--fg); color: var(--bg); }
 
 /* ── Model Toggle Rows ───────────────────────────────────────────────────── */
+.provider-card {
+  margin: 1rem 1.5rem 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-2);
+  overflow: hidden;
+}
+.provider-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+.provider-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  min-width: 0;
+}
+.provider-card-count {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--fg-muted);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.key-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  flex-shrink: 0;
+}
+.key-dot.key-ok { background: var(--green); }
+.key-dot.key-missing { background: var(--amber); }
+.mini-btn {
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  color: var(--fg-2);
+  border-radius: 50px;
+  padding: 0.3rem 0.8rem;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition);
+}
+.mini-btn:hover:not(:disabled) { border-color: var(--border-strong); color: var(--fg); }
+.mini-btn:disabled { opacity: 0.5; cursor: default; }
+.mini-btn.mini-danger:hover:not(:disabled) { color: #f87171; border-color: rgba(248,113,113,0.4); }
+.provider-key-row {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem 0;
+}
+.provider-key-input { flex: 1; min-width: 0; }
+.provider-search { margin: 0.7rem 0.9rem 0; width: calc(100% - 1.8rem); }
+.provider-model-list {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 0.25rem 0.9rem 0.75rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.provider-empty {
+  padding: 0.9rem 0.25rem;
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+  line-height: 1.5;
+}
 .model-provider-group {
   padding: 1rem 1.5rem 0;
 }
