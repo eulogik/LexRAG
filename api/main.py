@@ -1,36 +1,86 @@
+import asyncio
+import json
+import logging
 import os
 import sys
-import json
-import asyncio
+import tempfile
 import uuid
-from typing import Optional
+from contextlib import asynccontextmanager
+from typing import Literal, Optional
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from dotenv import load_dotenv
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+
+logging.basicConfig(level=os.environ.get("LEXRAG_LOG_LEVEL", "INFO"),
+                    format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
+log = logging.getLogger("lexrag")
 
 load_dotenv()
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-from api.rag_engine import (
-    search_and_rerank, build_prompt, SYSTEM_PROMPT, stream_provider,
-    LLM_PROVIDER, GROQ_MODEL, OPENROUTER_MODEL
-)
-from api.utils import detect_jurisdiction, auto_context_depth, tier_sources
 from api.memory import (
-    save_message, get_history, get_history_full,
-    list_sessions, delete_session, update_session_name, get_session_name
+    delete_session,
+    get_history,
+    get_history_full,
+    get_session_name,
+    list_sessions,
+    save_message,
+    update_session_name,
 )
-from api.utils import parse_citations
+from api.rag_engine import (
+    GROQ_MODEL,
+    LLM_PROVIDER,
+    OPENROUTER_MODEL,
+    SYSTEM_PROMPT,
+    build_prompt,
+    search_and_rerank,
+    stream_provider,
+)
+from api.security import API_KEY, SecurityMiddleware
+from api.utils import (
+    auto_context_depth,
+    detect_jurisdiction,
+    parse_citations,
+    tier_sources,
+)
+from api.version import __version__
 
-app = FastAPI(title="LexRAG", version="3.1")
 
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    import threading
+
+    def warm():
+        try:
+            from embeddings.embedder import get_embedder
+            get_embedder()
+            from api.rag_engine import get_reranker
+            get_reranker()
+            log.info("Model warm-up complete")
+        except Exception as e:
+            log.warning(f"Model warm-up failed: {e}")
+
+    threading.Thread(target=warm, daemon=True).start()
+    yield
+
+app = FastAPI(title="LexRAG", version=__version__, lifespan=lifespan)
+
+_ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get("LEXRAG_ALLOWED_ORIGINS", "").split(",") if o.strip()
+]
+app.add_middleware(CORSMiddleware, allow_origins=_ALLOWED_ORIGINS, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(SecurityMiddleware)
+
+if API_KEY:
+    log.info("API key auth enabled for /api/*")
+else:
+    log.warning("LEXRAG_API_KEY not set — API is open. Set it before exposing this port.")
 
 UI_DIR        = os.path.join(ROOT_DIR, "ui")
 MARKETING_DIR = os.path.join(ROOT_DIR, "marketing")
@@ -42,38 +92,38 @@ app.mount("/marketing", StaticFiles(directory=MARKETING_DIR), name="marketing")
 # ─── Model Catalog ───────────────────────────────────────────────────────────
 MODEL_CATALOG = {
     "groq": [
-        {"id": "llama-3.3-70b-versatile",  "name": "Llama 3.3 70B"},
-        {"id": "llama-3.1-8b-instant",      "name": "Llama 3.1 8B"},
-        {"id": "gemma2-9b-it",              "name": "Gemma 2 9B"},
+        {"id": "openai/gpt-oss-120b",    "name": "GPT-OSS 120B (Recommended)"},
+        {"id": "openai/gpt-oss-20b",     "name": "GPT-OSS 20B (Fast)"},
+        {"id": "qwen/qwen3.6-27b",       "name": "Qwen3.6 27B (Reasoning)"},
     ],
     "openrouter": [
         {"id": "meta-llama/llama-3.3-70b-instruct:free", "name": "Llama 3.3 70B (Free)"},
-        {"id": "deepseek/deepseek-r1:free",          "name": "DeepSeek R1 (Free)"},
-        {"id": "google/gemma-2-9b-it:free",          "name": "Gemma 2 9B (Free)"},
-        {"id": "qwen/qwen-2.5-coder-32b-instruct:free", "name": "Qwen 2.5 Coder 32B (Free)"},
+        {"id": "deepseek/deepseek-r1:free",              "name": "DeepSeek R1 (Free)"},
+        {"id": "google/gemma-3-27b-it:free",             "name": "Gemma 3 27B (Free)"},
+        {"id": "openai/gpt-oss-20b:free",                "name": "GPT-OSS 20B (Free)"},
     ],
     "ollama": [
-        {"id": "qwen3:14b",      "name": "Qwen3 14B (Local)"},
-        {"id": "llama3:latest",  "name": "Llama 3 (Local)"},
+        {"id": "qwen3:14b",    "name": "Qwen3 14B (Local)"},
+        {"id": "llama3.1:8b",  "name": "Llama 3.1 8B (Local)"},
     ]
 }
 
 # Default active models if settings don't exist
 DEFAULT_ACTIVE_MODELS = {
-    "groq":       ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"],
-    "openrouter": ["meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-r1:free", "google/gemma-2-9b-it:free"],
-    "ollama":     ["qwen3:14b", "llama3:latest"]
+    "groq":       ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"],
+    "openrouter": ["meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-r1:free", "openai/gpt-oss-20b:free"],
+    "ollama":     ["qwen3:14b", "llama3.1:8b"]
 }
 
 DEFAULT_PROVIDER_MODELS = {
-    "groq":       "llama-3.3-70b-versatile",
+    "groq":       "openai/gpt-oss-120b",
     "openrouter": "meta-llama/llama-3.3-70b-instruct:free",
     "ollama":     "qwen3:14b"
 }
 
 DEFAULT_SETTINGS = {
     "provider":              LLM_PROVIDER,
-    "model":                 DEFAULT_PROVIDER_MODELS.get(LLM_PROVIDER, "llama-3.3-70b-versatile"),
+    "model":                 DEFAULT_PROVIDER_MODELS.get(LLM_PROVIDER, "openai/gpt-oss-120b"),
     "jurisdiction_override": None,
     "active_models":         DEFAULT_ACTIVE_MODELS,
     "custom_models":         {}   # {"groq": [{"id": "...", "name": "..."}]}
@@ -160,46 +210,69 @@ def api_delete_session(session_id: str):
     return {"success": True}
 
 # ─── API: Ingestion Endpoints (Server-Centric De-confliction) ──────────────────
+class IngestMetadata(BaseModel):
+    source: str = "API Import"
+    source_type: Literal["statute", "ruling", "case"] = "statute"
+    jurisdiction: Literal["India", "UAE", "Both"] = "Both"
+    doc_title: str = "Untitled"
+    date: str = "imported"
+    url: str = ""
+
 class IngestTextRequest(BaseModel):
     text: str
-    metadata: dict
-
-class IngestPDFRequest(BaseModel):
-    filepath: str
-    metadata: dict
-    thorough: Optional[bool] = True
+    metadata: IngestMetadata = IngestMetadata()
 
 @app.post("/api/ingest")
 async def api_ingest_text(req: IngestTextRequest):
     from scripts.ingest import _local_ingest_text
+    if not req.text or not req.text.strip():
+        raise HTTPException(status_code=400, detail="Empty text")
+    if len(req.text) > 500_000:
+        raise HTTPException(status_code=413, detail="Text too large (500k char limit)")
     try:
         await asyncio.get_event_loop().run_in_executor(
-            None, lambda: _local_ingest_text(req.text, req.metadata)
+            None, lambda: _local_ingest_text(req.text, req.metadata.model_dump())
         )
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/ingest/pdf")
-async def api_ingest_pdf(req: IngestPDFRequest):
+async def api_ingest_pdf(file: UploadFile = File(...), metadata: str = Form("{}"),
+                         thorough: bool = Form(True)):
     from scripts.ingest import _local_ingest_pdf
-    if not os.path.exists(req.filepath):
-        raise HTTPException(status_code=404, detail="PDF file not found at specified path")
+    if file.content_type not in ("application/pdf", "application/octet-stream"):
+        raise HTTPException(status_code=400, detail="Only PDF uploads accepted")
     try:
+        meta = IngestMetadata.model_validate(json.loads(metadata or "{}"))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid metadata: {e}")
+    tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+    try:
+        content = await file.read()
+        if len(content) > 50_000_000:
+            raise HTTPException(status_code=413, detail="PDF too large (50MB limit)")
+        tmp.write(content)
+        tmp.close()
         await asyncio.get_event_loop().run_in_executor(
-            None, lambda: _local_ingest_pdf(req.filepath, req.metadata, req.thorough)
+            None, lambda: _local_ingest_pdf(tmp.name, meta.model_dump(), thorough)
         )
-        return {"success": True}
+        return {"success": True, "filename": file.filename}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        try: os.unlink(tmp.name)
+        except OSError: pass
 
 # ─── API: Chat (SSE Streaming) ────────────────────────────────────────────────
 class ChatRequest(BaseModel):
     question:              str
     session_id:            str
-    provider:              Optional[str] = None
-    model:                 Optional[str] = None
-    jurisdiction_override: Optional[str] = None
+    provider:              str | None = None
+    model:                 str | None = None
+    jurisdiction_override: str | None = None
 
 @app.post("/api/chat")
 async def chat_stream(req: ChatRequest):
@@ -208,7 +281,6 @@ async def chat_stream(req: ChatRequest):
     model    = req.model    or settings.get("model")
 
     async def generate():
-        start_all    = asyncio.get_event_loop().time()
         full_answer  = ""
         sources_out  = []
         jurisdiction = "Both"
@@ -217,13 +289,17 @@ async def chat_stream(req: ChatRequest):
         def format_sse(event: str, data: any) -> str:
             return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
-        # ── Step 0: Save user message IMMEDIATELY ───────────────────────────
+        # ── Step 0: History first (so the prompt never duplicates the
+        # current question), then persist. Name the session only once. ──
+        session_name = req.question[:60].strip()
         try:
-            session_name = req.question[:60].strip()
+            history = get_history(req.session_id, limit=5)
+            if not history:
+                update_session_name(req.session_id, session_name)
             save_message(req.session_id, "user", req.question)
-            update_session_name(req.session_id, session_name)
         except Exception as e:
-            print(f"Warning: Could not save user message: {e}")
+            history = []
+            log.warning(f"Could not persist user message: {e}")
 
         try:
             # ── Step 1: Jurisdiction & Pings ────────────────────────────────
@@ -236,7 +312,7 @@ async def chat_stream(req: ChatRequest):
             else:
                 jurisdiction = detect_jurisdiction(req.question)
 
-            # ── Step 2: Retrieval (with 15s timeout) ───────────────────────
+            # ── Step 2: Retrieval (45s budget; models pre-warmed at startup) ──
             top_k = auto_context_depth(req.question)
             try:
                 t0 = asyncio.get_event_loop().time()
@@ -244,12 +320,12 @@ async def chat_stream(req: ChatRequest):
                     asyncio.get_event_loop().run_in_executor(
                         None, lambda: search_and_rerank(req.question, jurisdiction, top_k)
                     ),
-                    timeout=15.0
+                    timeout=45.0
                 )
-                print(f"Retrieval + Rerank took: {asyncio.get_event_loop().time() - t0:.3f}s")
+                log.info(f"Retrieval + Rerank took: {asyncio.get_event_loop().time() - t0:.3f}s")
             except asyncio.TimeoutError:
                 docs = []
-                print("Warning: Retrieval timed out, using general knowledge.")
+                log.warning("Retrieval timed out, using general knowledge.")
 
             confidence  = tier_sources(docs)
             # Deduplicate sources by (title, source) — same document split into many
@@ -276,8 +352,7 @@ async def chat_stream(req: ChatRequest):
                 "jurisdiction": jurisdiction
             })
 
-            # ── Step 4: Build prompt ────────────────────────────────────────
-            history  = get_history(req.session_id, limit=5)
+            # ── Step 4: Build prompt (history prefetched in Step 0) ─────────
             prompt   = build_prompt(req.question, docs, history, confidence)
             messages = [
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -290,7 +365,7 @@ async def chat_stream(req: ChatRequest):
                 first = True
                 async for token in stream_provider(messages, provider, model):
                     if first:
-                        print(f"Time to first token: {asyncio.get_event_loop().time() - t_gen_start:.3f}s")
+                        log.info(f"Time to first token: {asyncio.get_event_loop().time() - t_gen_start:.3f}s")
                         first = False
                     yield token
 
@@ -344,17 +419,24 @@ async def chat_stream(req: ChatRequest):
                 save_message(req.session_id, "assistant", full_answer,
                              sources=sources_out, provider=provider)
             except Exception as e:
-                print(f"Warning: Could not save assistant message: {e}")
+                log.warning(f"Could not save assistant message: {e}")
 
+            log.info("chat done session=%s provider=%s model=%s confidence=%s "
+                     "jurisdiction=%s sources=%d chars=%d",
+                     req.session_id[:8], provider, model, confidence,
+                     jurisdiction, len(sources_out), len(full_answer))
             yield format_sse("done", {
                 "session_name": session_name,
                 "confidence":   confidence,
                 "jurisdiction": jurisdiction
             })
+            log.info(f"chat done session={req.session_id[:8]} provider={provider} "
+                     f"model={model} confidence={confidence} jurisdiction={jurisdiction} "
+                     f"sources={len(sources_out)} chars={len(full_answer)}")
 
         except Exception as e:
             error_msg = str(e)
-            print(f"Chat error: {error_msg}")
+            log.error(f"Chat error: {error_msg}")
             
             # Flush error to UI
             yield format_sse("error", {"content": error_msg})
@@ -371,4 +453,4 @@ async def chat_stream(req: ChatRequest):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "3.1"}
+    return {"status": "ok", "version": __version__}

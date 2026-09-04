@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lexrag"
-version = "3.3.0"
+version = "3.4.0"
 description = "Legal Intelligence Terminal — Hybrid RAG for UAE & Indian Law, Tax and Compliance"
 readme = "README.md"
 license = { text = "AGPL-3.0-or-later" }
@@ -74,15 +74,25 @@ Product = "https://evolucentai.com"
 HuggingFace = "https://huggingface.co/evolucentai"
 
 [project.scripts]
-lexrag = "api.main:app"
+lexrag = "api.cli:main"
 
 [tool.setuptools]
-packages = ["api", "embeddings", "scripts", "scrapers"]
+packages = ["api", "embeddings", "scripts", "scrapers", "ui", "marketing", "data"]
+
+[tool.setuptools.package-data]
+"*" = ["*.html", "*.js", "*.css", "*.png", "*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E402", "E501", "E701", "E741", "F401", "F811"]
 
 [tool.coverage.run]
 source = ["api", "embeddings", "scripts"]

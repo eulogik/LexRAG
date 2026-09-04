@@ -43,6 +43,11 @@
       <select id="s-model-select" class="select-input"></select>
     </div>
     <div class="settings-section">
+      <label class="settings-label">API Key (optional)</label>
+      <p class="settings-hint">Required only if the server sets LEXRAG_API_KEY. Stored in this browser only.</p>
+      <input id="s-api-key" type="password" class="text-input" placeholder="sk-…" autocomplete="off">
+    </div>
+    <div class="settings-section">
       <label class="settings-label">Jurisdiction Lock</label>
       <p class="settings-hint">When set to "Auto", the system detects India/UAE/Both from your query.</p>
       <div class="pill-group" id="s-jur-pills">
@@ -73,7 +78,7 @@
           <option value="openrouter">OpenRouter</option>
         </select>
       </div>
-      <input id="c-model-id"   class="text-input" placeholder="Model ID (e.g. llama3-8b-8192)" style="margin-top:.5rem">
+      <input id="c-model-id"   class="text-input" placeholder="Model ID (e.g. openai/gpt-oss-20b)" style="margin-top:.5rem">
       <input id="c-model-name" class="text-input" placeholder="Display name (e.g. Llama 3 8B)" style="margin-top:.5rem">
       <button class="btn-add" onclick="addCustomModel()">Add Model</button>
     </div>
@@ -120,6 +125,10 @@
 
   <!-- Chat Area -->
   <main class="chat-area">
+    <div class="mobile-topbar">
+      <button class="menu-btn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
+      <span>LexRAG</span>
+    </div>
     <div id="messages" class="messages"></div>
 
     <!-- Empty State -->
@@ -148,7 +157,7 @@
         ></textarea>
         <div class="input-controls">
           <div class="model-selector" id="model-selector" onclick="toggleModelDropdown(event)">
-            <span id="model-label">Groq · Llama 3.3</span>
+            <span id="model-label">Groq · GPT-OSS 120B</span>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             <div id="model-dropdown" class="model-dropdown hidden"></div>
           </div>
@@ -161,7 +170,8 @@
   </main>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="/ui/app.js?v=3"></script>
+<script src="/ui/vendor/marked.min.js"></script>
+<script src="/ui/vendor/dompurify.min.js"></script>
+<script src="/ui/app.js?v=4"></script>
 </body>
 </html>

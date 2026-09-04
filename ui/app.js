@@ -3,8 +3,8 @@
 // ══ State ════════════════════════════════════════════════════════════════════
 let currentSessionId    = genId();
 let currentProvider     = 'groq';
-let currentModel        = 'llama-3.3-70b-versatile';
-let currentModelLabel   = 'Groq · Llama 3.3';
+let currentModel        = 'openai/gpt-oss-120b';
+let currentModelLabel   = 'Groq · GPT-OSS 120B';
 let jurisdictionOverride = null;
 let isStreaming          = false;
 let allModels            = {};   // full catalog from /api/models
@@ -33,10 +33,35 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ══ Helpers ══════════════════════════════════════════════════════════════════
+function apiKey() {
+  try { return localStorage.getItem('lexrag_api_key') || ''; } catch (e) { return ''; }
+}
+
 async function api(url, opts = {}) {
+  opts.headers = { ...(opts.headers || {}) };
+  const k = apiKey();
+  if (k) opts.headers['X-API-Key'] = k;
   const resp = await fetch(url, opts);
   if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
   return resp.json();
+}
+
+function renderMarkdown(el, md) {
+  if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+    el.innerHTML = DOMPurify.sanitize(marked.parse(md));
+  } else if (typeof marked !== 'undefined') {
+    el.textContent = md;
+  } else {
+    el.textContent = md;
+  }
+}
+
+function safeUrl(u) {
+  try {
+    const parsed = new URL(u, window.location.origin);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.href;
+  } catch (e) { /* fall through */ }
+  return null;
 }
 
 function genId() {
@@ -132,6 +157,21 @@ document.addEventListener('click', () => {
 });
 
 // ══ Sessions ═════════════════════════════════════════════════════════════════
+function toggleSidebar(force) {
+  const sb = document.querySelector('.sidebar');
+  const open = force !== undefined ? force : !sb.classList.contains('open');
+  sb.classList.toggle('open', open);
+  let veil = document.getElementById('sidebar-veil');
+  if (open && !veil) {
+    veil = document.createElement('div');
+    veil.id = 'sidebar-veil';
+    veil.classList.add('sidebar-veil');
+    veil.onclick = () => toggleSidebar(false);
+    document.body.appendChild(veil);
+  }
+  if (veil) veil.classList.toggle('visible', open);
+}
+
 async function refreshSessions() {
   try {
     const sessions = await api('/api/sessions');
@@ -179,6 +219,7 @@ function renderSessions(sessions) {
 
 async function loadSession(id) {
   currentSessionId = id;
+  toggleSidebar(false);
   document.querySelectorAll('.session-item').forEach(el =>
     el.classList.toggle('active', el.dataset.id === id));
   clearMessages();
@@ -208,7 +249,7 @@ async function loadSession(id) {
         }
 
         if (typeof marked !== 'undefined') {
-          contentEl.innerHTML = marked.parse(content);
+          renderMarkdown(contentEl, content);
         } else {
           contentEl.textContent = content;
         }
@@ -479,11 +520,7 @@ function finalizeAI(wrap, meta) {
   }
   
   if (contentEl) {
-    if (typeof marked !== 'undefined') {
-      contentEl.innerHTML = marked.parse(content);
-    } else {
-      contentEl.textContent = content;
-    }
+    renderMarkdown(contentEl, content);
   }
   
   if (!meta) return;
@@ -589,12 +626,33 @@ function renderMetaBar(outer, meta) {
     sources.forEach(s => {
       const item = document.createElement('div');
       item.className = 'source-item';
-      item.innerHTML = `
-        <span>${s.title || s.source || 'Source'}</span>
-        <span class="badge-jur" style="font-size:.55rem">${s.jurisdiction || ''}</span>
-        <span class="source-score">${s.score != null ? s.score.toFixed(2) : ''}</span>
-        ${s.url ? `<a href="${s.url}" target="_blank" class="source-link" onclick="event.stopPropagation()">↗</a>` : ''}
-      `;
+
+      const titleEl = document.createElement('span');
+      titleEl.textContent = s.title || s.source || 'Source';
+      item.appendChild(titleEl);
+
+      const jurEl = document.createElement('span');
+      jurEl.className = 'badge-jur';
+      jurEl.style.fontSize = '.55rem';
+      jurEl.textContent = s.jurisdiction || '';
+      item.appendChild(jurEl);
+
+      const scoreEl = document.createElement('span');
+      scoreEl.className = 'source-score';
+      scoreEl.textContent = s.score != null ? Number(s.score).toFixed(2) : '';
+      item.appendChild(scoreEl);
+
+      const href = s.url ? safeUrl(s.url) : null;
+      if (href) {
+        const a = document.createElement('a');
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.className = 'source-link';
+        a.textContent = '↗';
+        a.onclick = ev => ev.stopPropagation();
+        item.appendChild(a);
+      }
       panel.appendChild(item);
     });
 
@@ -650,6 +708,10 @@ function populateSettings() {
     });
   }
   populateSettingsModelSelect(settings.provider || currentProvider);
+
+  // API key (browser-local only, never sent to /api/settings)
+  const keyInput = document.getElementById('s-api-key');
+  if (keyInput && !keyInput.value) keyInput.value = apiKey();
 
   // Jurisdiction
   document.querySelectorAll('#s-jur-pills button[data-jur]').forEach(btn => {
@@ -852,10 +914,7 @@ async function removeCustomModel(provider, modelId) {
   }
   settings.custom_models = custom;
   settings.active_models = active;
-  if (allModels[provider]) {
-    allModels[provider] = allModels[provider].filter(m => m.id !== modelId);
-  }
-  
+
   await saveSettings(true);
   populateSettings();
 }
@@ -890,6 +949,10 @@ async function saveSettings(skipClose = false) {
   };
 
   try {
+    const keyInput = document.getElementById('s-api-key');
+    try {
+      if (keyInput) localStorage.setItem('lexrag_api_key', keyInput.value.trim());
+    } catch (e) { /* storage unavailable */ }
     const updated = await api('/api/settings', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
