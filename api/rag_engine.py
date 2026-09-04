@@ -38,7 +38,7 @@ OLLAMA_URL   = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/chat")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:14b")
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-OPENROUTER_MODEL   = "meta-llama/llama-3.3-70b-instruct:free"
+OPENROUTER_MODEL   = "google/gemma-4-31b-it:free"
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_MODEL   = "openai/gpt-oss-120b"

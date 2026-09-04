@@ -97,10 +97,10 @@ MODEL_CATALOG = {
         {"id": "qwen/qwen3.6-27b",       "name": "Qwen3.6 27B (Reasoning)"},
     ],
     "openrouter": [
-        {"id": "meta-llama/llama-3.3-70b-instruct:free", "name": "Llama 3.3 70B (Free)"},
-        {"id": "deepseek/deepseek-r1:free",              "name": "DeepSeek R1 (Free)"},
-        {"id": "google/gemma-3-27b-it:free",             "name": "Gemma 3 27B (Free)"},
-        {"id": "openai/gpt-oss-20b:free",                "name": "GPT-OSS 20B (Free)"},
+        {"id": "google/gemma-4-31b-it:free", "name": "Gemma 4 31B (Free)"},
+        {"id": "nvidia/nemotron-3-super-120b-a12b:free", "name": "Nemotron-3 Super 120B (Free)"},
+        {"id": "nvidia/nemotron-3-ultra-550b-a55b:free", "name": "Nemotron-3 Ultra 550B (Free)"},
+        {"id": "z-ai/glm-5.2:free", "name": "GLM-5.2 (Free)"},
     ],
     "ollama": [
         {"id": "qwen3:14b",    "name": "Qwen3 14B (Local)"},
@@ -111,13 +111,13 @@ MODEL_CATALOG = {
 # Default active models if settings don't exist
 DEFAULT_ACTIVE_MODELS = {
     "groq":       ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"],
-    "openrouter": ["meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-r1:free", "openai/gpt-oss-20b:free"],
+    "openrouter": ["google/gemma-4-31b-it:free", "nvidia/nemotron-3-super-120b-a12b:free", "z-ai/glm-5.2:free"],
     "ollama":     ["qwen3:14b", "llama3.1:8b"]
 }
 
 DEFAULT_PROVIDER_MODELS = {
     "groq":       "openai/gpt-oss-120b",
-    "openrouter": "meta-llama/llama-3.3-70b-instruct:free",
+    "openrouter": "google/gemma-4-31b-it:free",
     "ollama":     "qwen3:14b"
 }
 
