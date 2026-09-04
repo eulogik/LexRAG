@@ -1,13 +1,22 @@
-import sqlite3
 import json
+import logging
 import os
+import sqlite3
 from datetime import datetime
+
 from sqlite_utils import Database
+
+log = logging.getLogger("lexrag")
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "lexrag.db")
 
 def setup_db():
     db = Database(DB_PATH)
+    try:
+        db.execute("PRAGMA journal_mode=WAL")
+        db.execute("PRAGMA busy_timeout=5000")
+    except Exception:
+        pass
     if "conversations" not in db.table_names():
         db["conversations"].create({
             "id": int,
@@ -50,7 +59,7 @@ def update_session_name(session_id: str, name: str):
                 "updated_at": now
             })
     except Exception as e:
-        print(f"Warning: could not update session name: {e}")
+        log.warning(f"could not update session name: {e}")
 
 def get_session_name(session_id: str) -> str:
     db = setup_db()

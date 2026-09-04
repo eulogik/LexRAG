@@ -1,0 +1,8 @@
+graft ui
+graft marketing
+graft data/statutes
+global-exclude *.pyc
+global-exclude __pycache__
+prune .venv
+prune dist
+prune build

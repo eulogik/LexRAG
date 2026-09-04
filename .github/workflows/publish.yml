@@ -60,6 +60,8 @@ jobs:
           api.upload_folder(
             repo_id='evolucentai/lexrag',
             folder_path='.',
+            allow_patterns=['*.py', '*.html', '*.css', '*.js', '*.md', '*.toml', '*.txt', '*.yml', '*.png', 'Dockerfile', 'docker-compose.yml', '.dockerignore', 'MANIFEST.in'],
+            ignore_patterns=['.venv/*', '.git/*', '__pycache__/*', '*.pyc', 'data/*.db', 'settings.json', 'qdrant_storage/*', 'embeddings_cache/*', 'dist/*', 'build/*', '.pytest_cache/*', 'scratch/*'],
             token='${{ secrets.HF_TOKEN }}'
           )
           print('Uploaded to HuggingFace')

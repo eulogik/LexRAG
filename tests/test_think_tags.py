@@ -1,7 +1,8 @@
 """Tests for think-tag state machine."""
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from api.utils import strip_think_tags

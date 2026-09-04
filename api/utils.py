@@ -1,7 +1,6 @@
-import re
 import os
+import re
 import urllib.parse
-
 
 # ─── Jurisdiction Detection ───────────────────────────────────────────────────
 INDIA_KEYWORDS = [

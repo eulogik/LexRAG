@@ -1,9 +1,13 @@
 import os
 import sys
+
 from unstructured.partition.pdf import partition_pdf
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from embeddings.embedder import upsert_document
 import httpx
+
+from embeddings.embedder import upsert_document
+
 
 def is_api_running() -> bool:
     try:
@@ -45,13 +49,14 @@ def ingest_pdf(filepath: str, metadata: dict, thorough: bool = True):
     Routes to API if server is active to prevent lock conflict and double models in memory.
     """
     if is_api_running():
-        print(f"API server is active. Routing PDF ingestion for {filepath} through endpoint...")
+        print(f"API server is active. Uploading {filepath} through endpoint...")
         try:
-            r = httpx.post("http://127.0.0.1:8000/api/ingest/pdf", json={
-                "filepath": os.path.abspath(filepath),
-                "metadata": metadata,
-                "thorough": thorough
-            }, timeout=180.0)
+            import json as _json
+            with open(filepath, "rb") as f:
+                r = httpx.post("http://127.0.0.1:8000/api/ingest/pdf",
+                    files={"file": (os.path.basename(filepath), f, "application/pdf")},
+                    data={"metadata": _json.dumps(metadata), "thorough": str(bool(thorough))},
+                    timeout=180.0)
             r.raise_for_status()
             print(f"API successfully ingested {filepath}")
             return

@@ -1,10 +1,11 @@
 """Tests for utility functions."""
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from api.utils import parse_citations, format_score
+from api.utils import format_score, parse_citations
 
 
 def test_parse_citations_uae_law():

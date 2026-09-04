@@ -1,8 +1,10 @@
-import requests
-from bs4 import BeautifulSoup
+import hashlib
 import os
 import sys
-import hashlib
+
+import requests
+from bs4 import BeautifulSoup
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scripts.ingest import ingest_text
 

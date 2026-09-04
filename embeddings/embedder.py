@@ -1,9 +1,23 @@
-from fastembed import TextEmbedding, SparseTextEmbedding
-from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, SparseVectorParams, PointStruct, Filter, FieldCondition, MatchValue, MatchAny, Fusion, FusionQuery, Prefetch
-import uuid
 import json
 import os
+import threading
+import uuid
+
+from fastembed import SparseTextEmbedding, TextEmbedding
+from qdrant_client import QdrantClient
+from qdrant_client.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    Fusion,
+    FusionQuery,
+    MatchAny,
+    MatchValue,
+    PointStruct,
+    Prefetch,
+    SparseVectorParams,
+    VectorParams,
+)
 
 COLLECTION_NAME = "lexrag_docs_v3"
 QDRANT_URL = "http://localhost:6333"
@@ -13,11 +27,14 @@ DENSE_MODEL = "BAAI/bge-small-en-v1.5"
 SPARSE_MODEL = "prithivida/Splade_PP_en_v1"
 
 _embedder = None
+_embedder_lock = threading.Lock()
 
 def get_embedder():
     global _embedder
     if _embedder is None:
-        _embedder = LexEmbedder()
+        with _embedder_lock:
+            if _embedder is None:
+                _embedder = LexEmbedder()
     return _embedder
 
 class LexEmbedder:

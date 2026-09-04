@@ -1,5 +1,6 @@
 import os
 import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scripts.ingest import ingest_pdf
 
@@ -39,6 +40,7 @@ def guess_meta(filename: str) -> dict:
     }
 
 if __name__ == "__main__":
+    os.makedirs(RAW_DIR, exist_ok=True)
     pdfs = [f for f in os.listdir(RAW_DIR) if f.endswith(".pdf")]
     if not pdfs:
         print(f"No PDFs found in {RAW_DIR}. Drop your PDF files there and rerun.")

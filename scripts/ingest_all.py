@@ -7,7 +7,7 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-from scripts.ingest import ingest_text, ingest_pdf
+from scripts.ingest import ingest_pdf, ingest_text
 
 DATA_DIR = os.path.join(ROOT_DIR, "data")
 

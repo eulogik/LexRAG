@@ -25,8 +25,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
+          pip install -r requirements-dev.txt
+          pip install pytest-cov
 
       - name: Run tests
         run: |
@@ -37,9 +37,8 @@ jobs:
           python -c "
           import sys, os
           sys.path.insert(0, '.')
-          from api.utils import parse_citations, format_score
-          from api.rag_engine import detect_jurisdiction, auto_context_depth, tier_sources, strip_think_tags
-          from embeddings.embedder import LexEmbedder
+          from api.utils import parse_citations, format_score, detect_jurisdiction, auto_context_depth, tier_sources, strip_think_tags
+          from api.memory import setup_db, save_message, get_history
           print('All imports OK')
           "
 
@@ -54,7 +53,7 @@ jobs:
       - name: Install ruff
         run: pip install ruff
       - name: Run ruff
-        run: ruff check . --ignore=E402,F401,F811 --exit-zero
+        run: ruff check .
 
   build:
     runs-on: ubuntu-latest

@@ -1,8 +1,9 @@
-import requests
-from bs4 import BeautifulSoup
+import hashlib
 import os
 import sys
-import hashlib
+
+import requests
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
 # Load environment variables from .env file

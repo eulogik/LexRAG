@@ -1,7 +1,8 @@
 """Tests for auto-context-depth calculation."""
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from api.utils import auto_context_depth

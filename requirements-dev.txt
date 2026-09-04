@@ -1,0 +1,9 @@
+# Lightweight dev/test dependencies — no torch, no embedding models.
+# Full stack lives in requirements.txt / pyproject dependencies.
+pytest
+pytest-cov
+ruff
+build
+httpx
+sqlite-utils
+python-dotenv
