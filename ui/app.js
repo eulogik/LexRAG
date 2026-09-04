@@ -26,6 +26,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     syncModelLabel();
     renderModelDropdown();
+    applyTheme(currentTheme());
+    trackScroll();
     await refreshSessions();
   } catch (e) {
     console.error('Init failed:', e);
@@ -37,13 +39,39 @@ function apiKey() {
   try { return localStorage.getItem('lexrag_api_key') || ''; } catch (e) { return ''; }
 }
 
-async function api(url, opts = {}) {
-  opts.headers = { ...(opts.headers || {}) };
+function authHeaders(extra = {}) {
+  const h = { ...(extra || {}) };
   const k = apiKey();
-  if (k) opts.headers['X-API-Key'] = k;
+  if (k) h['X-API-Key'] = k;
+  return h;
+}
+
+async function api(url, opts = {}) {
+  opts.headers = authHeaders(opts.headers);
   const resp = await fetch(url, opts);
   if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
   return resp.json();
+}
+
+// ══ Theme ═════════════════════════════════════════════════════════════════════
+const ICON_SUN = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`;
+const ICON_MOON = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`;
+
+function currentTheme() {
+  return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+}
+
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t === 'dark' ? 'dark' : 'light';
+  try { localStorage.setItem('lexrag_theme', currentTheme()); } catch (e) { /* ignore */ }
+  const b = document.getElementById('theme-btn');
+  if (b) b.innerHTML = currentTheme() === 'dark' ? ICON_SUN : ICON_MOON;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = currentTheme() === 'dark' ? '#000000' : '#FAF8F3';
+}
+
+function toggleTheme() {
+  applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
 }
 
 function renderMarkdown(el, md) {
@@ -205,7 +233,7 @@ function renderSessions(sessions) {
     del.title = 'Delete';
     del.onclick = async ex => {
       ex.stopPropagation();
-      await fetch(`/api/sessions/${s.session_id}`, { method: 'DELETE' });
+      await fetch(`/api/sessions/${s.session_id}`, { method: 'DELETE', headers: authHeaders() });
       await refreshSessions();
       if (s.session_id === currentSessionId) newChat();
     };
@@ -261,7 +289,7 @@ async function loadSession(id) {
         renderMetaBar(outer, { sources, confidence, jurisdiction: msgJur });
       }
     });
-    scrollBottom();
+    scrollBottom(true);
   } catch (e) {
     console.error('Load session error:', e);
   }
@@ -284,6 +312,24 @@ function useSuggestion(btn) {
   sendMessage();
 }
 
+function sendOrStop() {
+  if (isStreaming && chatAborter) { chatAborter.abort(); return; }
+  sendMessage();
+}
+
+let chatAborter = null;
+const ICON_SEND = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
+const ICON_STOP = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
+
+function setStreamingUI(streaming) {
+  const btn = document.getElementById('send-btn');
+  if (!btn) return;
+  btn.classList.toggle('stop', streaming);
+  btn.innerHTML = streaming ? ICON_STOP : ICON_SEND;
+  btn.title = streaming ? 'Stop' : 'Send';
+  btn.disabled = false;
+}
+
 async function sendMessage() {
   if (isStreaming) return;
 
@@ -295,7 +341,11 @@ async function sendMessage() {
   autoResize(input);
   hideEmpty();
   isStreaming = true;
+  stickToBottom = true;
+  scrollBottom();
   setDisabled(true);
+  setStreamingUI(true);
+  chatAborter = new AbortController();
 
   // Append user bubble
   appendUserBubble(question);
@@ -331,12 +381,14 @@ async function sendMessage() {
 
   let meta         = null;
   let fullAnswer   = '';
+  let aborted      = false;
   let sessionName  = question.slice(0, 60);
 
   try {
     const resp = await fetch('/api/chat', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      signal:  chatAborter.signal,
       body:    JSON.stringify({
         question,
         session_id:            currentSessionId,
@@ -415,7 +467,9 @@ async function sendMessage() {
     }
   } catch (e) {
     removeThink();
-    if (!fullAnswer) {
+    if (e && e.name === 'AbortError') {
+      aborted = true;
+    } else if (!fullAnswer) {
       contentEl.querySelector('.cursor')?.remove();
       contentEl.textContent = '⚠ Network error: ' + e.message;
     }
@@ -423,9 +477,15 @@ async function sendMessage() {
 
   // Finalize bubble
   clearTimeout(watchdog);
-  contentEl.querySelector('.cursor')?.remove();
-  finalizeAI(aiWrap, meta);
+  if (aborted && !fullAnswer) {
+    aiWrap.remove();
+    if (!document.querySelector('#messages .message-wrap')) showEmpty();
+  } else {
+    contentEl.querySelector('.cursor')?.remove();
+    finalizeAI(aiWrap, meta);
+  }
 
+  chatAborter = null;
   await refreshSessions();
   finishStreaming();
   input.focus();
@@ -434,6 +494,7 @@ async function sendMessage() {
 function finishStreaming() {
   isStreaming = false;
   setDisabled(false);
+  setStreamingUI(false);
 }
 
 // ══ DOM Helpers ══════════════════════════════════════════════════════════════
@@ -970,12 +1031,22 @@ async function saveSettings(skipClose = false) {
 }
 
 // ══ Utils ═════════════════════════════════════════════════════════════════════
+let stickToBottom = true;
+
+function trackScroll() {
+  const el = document.getElementById('messages');
+  if (!el) return;
+  el.addEventListener('scroll', () => {
+    stickToBottom = (el.scrollHeight - el.scrollTop - el.clientHeight) < 80;
+  });
+}
+
 function clearMessages() { document.getElementById('messages').innerHTML = ''; }
 function showEmpty()   { document.getElementById('empty-state').classList.remove('hidden'); }
 function hideEmpty()   { document.getElementById('empty-state').classList.add('hidden');    }
-function scrollBottom() {
+function scrollBottom(force = false) {
   const el = document.getElementById('messages');
-  el.scrollTop = el.scrollHeight;
+  if (el && (force || stickToBottom)) el.scrollTop = el.scrollHeight;
 }
 function setDisabled(v) {
   document.getElementById('send-btn').disabled    = v;

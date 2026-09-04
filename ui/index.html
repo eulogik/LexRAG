@@ -10,7 +10,14 @@
   <meta property="og:description" content="Enterprise hybrid RAG for UAE & Indian law, taxation and compliance.">
   <meta property="og:url" content="https://github.com/eulogik/LexRAG">
   <meta name="author" content="Evolucent AI / Eulogik">
-  <link rel="stylesheet" href="/ui/style.css?v=4">
+  <meta name="theme-color" content="#FAF8F3">
+  <script>
+    try {
+      var t = localStorage.getItem('lexrag_theme') || 'light';
+      document.documentElement.dataset.theme = t === 'dark' ? 'dark' : 'light';
+    } catch (e) { document.documentElement.dataset.theme = 'light'; }
+  </script>
+  <link rel="stylesheet" href="/ui/style.css?v=5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -101,8 +108,9 @@
   <nav class="sidebar">
     <div class="sidebar-top">
       <div class="logo">
-        <span class="logo-name">LexRAG</span>
-        <span class="logo-sub">By <a href="https://evolucentai.com" target="_blank" style="color:inherit;text-decoration:underline;text-decoration-style:dotted;">Evolucent AI</a></span>
+        <span class="logo-mark" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="var(--accent)"><path d="M12 1.5c.6 4.9 2.6 6.9 7.5 7.5-4.9.6-6.9 2.6-7.5 7.5-.6-4.9-2.6-6.9-7.5-7.5 4.9-.6 6.9-2.6 7.5-7.5z"/><path d="M18.5 13.5c.3 2.4 1.3 3.4 3.7 3.7-2.4.3-3.4 1.3-3.7 3.7-.3-2.4-1.3-3.4-3.7-3.7 2.4-.3 3.4-1.3 3.7-3.7z" opacity="0.65"/></svg></span>
+        <span><span class="logo-name">LexRAG</span>
+        <span class="logo-sub">By <a href="https://evolucentai.com" target="_blank" style="color:inherit;text-decoration:underline;text-decoration-style:dotted;">Evolucent AI</a></span></span>
       </div>
       <button class="new-chat-btn" onclick="newChat()"><span>+</span> New Chat</button>
     </div>
@@ -120,6 +128,7 @@
         </svg>
         Settings
       </button>
+      <button class="icon-action-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme"></button>
     </div>
   </nav>
 
@@ -133,9 +142,9 @@
 
     <!-- Empty State -->
     <div id="empty-state" class="empty-state">
-      <div class="empty-logo">⚖</div>
-      <h2>LexRAG</h2>
-      <p>Legal intelligence for UAE and Indian law, taxation, and compliance.</p>
+      <div class="empty-logo" aria-hidden="true"><svg width="52" height="52" viewBox="0 0 24 24" fill="var(--accent)"><path d="M12 1.5c.6 4.9 2.6 6.9 7.5 7.5-4.9.6-6.9 2.6-7.5 7.5-.6-4.9-2.6-6.9-7.5-7.5 4.9-.6 6.9-2.6 7.5-7.5z"/><path d="M18.5 13.5c.3 2.4 1.3 3.4 3.7 3.7-2.4.3-3.4 1.3-3.7 3.7-.3-2.4-1.3-3.4-3.7-3.7 2.4-.3 3.4-1.3 3.7-3.7z" opacity="0.65"/></svg></div>
+      <h2>How can I help with UAE &amp; India law today?</h2>
+      <p>Grounded answers with citations, from statutes, rulings and case law.</p>
       <div class="suggestion-chips">
         <button class="chip" onclick="useSuggestion(this)">GST on online gaming contest prizes</button>
         <button class="chip" onclick="useSuggestion(this)">UAE VAT on financial services</button>
@@ -161,7 +170,7 @@
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             <div id="model-dropdown" class="model-dropdown hidden"></div>
           </div>
-          <button id="send-btn" class="send-btn" onclick="sendMessage()">
+          <button id="send-btn" class="send-btn" onclick="sendOrStop()" title="Send">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </div>

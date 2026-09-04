@@ -6,14 +6,14 @@ import sys
 import tempfile
 import uuid
 from contextlib import asynccontextmanager
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 logging.basicConfig(level=os.environ.get("LEXRAG_LOG_LEVEL", "INFO"),
                     format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
@@ -140,20 +140,37 @@ def load_settings() -> dict:
         for p in DEFAULT_ACTIVE_MODELS:
             if p not in merged.get("active_models", {}):
                 merged.setdefault("active_models", {})[p] = DEFAULT_ACTIVE_MODELS[p]
+        # Drop saved IDs the catalog no longer knows (stale after model rotations)
+        known = {p: {m["id"] for m in MODEL_CATALOG.get(p, [])} for p in MODEL_CATALOG}
+        active = merged.get("active_models", {})
+        for p, ids in list(active.items()):
+            if p in known:
+                active[p] = [i for i in ids if i in known[p]] or DEFAULT_ACTIVE_MODELS[p]
+        custom = merged.get("custom_models", {})
+        for p, models in list(custom.items()):
+            if p in known:
+                custom[p] = [m for m in models if m.get("id") not in known[p]]
+        if merged.get("provider") not in MODEL_CATALOG:
+            merged["provider"] = DEFAULT_SETTINGS["provider"]
+        prov = merged["provider"]
+        valid_ids = known.get(prov, set()) | {m.get("id") for m in custom.get(prov, [])}
+        if merged.get("model") not in valid_ids:
+            merged["model"] = DEFAULT_PROVIDER_MODELS.get(prov, DEFAULT_SETTINGS["model"])
         return merged
     return DEFAULT_SETTINGS.copy()
 
-def save_settings_to_disk(data: dict):
-    current = load_settings()
-    current.update(data)
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(current, f, indent=2)
-
 # ─── Pages ───────────────────────────────────────────────────────────────────
+_index_cache: dict = {}
+
 @app.get("/", response_class=HTMLResponse)
 def serve_app():
-    with open(os.path.join(UI_DIR, "index.html")) as f:
-        return HTMLResponse(content=f.read())
+    path = os.path.join(UI_DIR, "index.html")
+    mtime = os.path.getmtime(path)
+    if _index_cache.get("mtime") != mtime:
+        with open(path) as f:
+            _index_cache["content"] = f.read()
+        _index_cache["mtime"] = mtime
+    return HTMLResponse(content=_index_cache["content"])
 
 # ─── API: Models ─────────────────────────────────────────────────────────────
 @app.get("/api/models")
@@ -186,7 +203,9 @@ async def update_settings_endpoint(request: Request):
         if deep_key in data and isinstance(data[deep_key], dict):
             current.setdefault(deep_key, {}).update(data[deep_key])
             del data[deep_key]
-    current.update(data)
+    for k, v in data.items():
+        if k in DEFAULT_SETTINGS:
+            current[k] = v
     with open(SETTINGS_FILE, "w") as f:
         json.dump(current, f, indent=2)
     return current
@@ -267,11 +286,13 @@ async def api_ingest_pdf(file: UploadFile = File(...), metadata: str = Form("{}"
         except OSError: pass
 
 # ─── API: Chat (SSE Streaming) ────────────────────────────────────────────────
+VALID_PROVIDERS = ("groq", "openrouter", "ollama")
+
 class ChatRequest(BaseModel):
-    question:              str
-    session_id:            str
+    question:              str = Field(max_length=8000)
+    session_id:            str = Field(max_length=128)
     provider:              str | None = None
-    model:                 str | None = None
+    model:                 str | None = Field(default=None, max_length=256)
     jurisdiction_override: str | None = None
 
 @app.post("/api/chat")
@@ -279,6 +300,10 @@ async def chat_stream(req: ChatRequest):
     settings = load_settings()
     provider = req.provider or settings.get("provider") or LLM_PROVIDER
     model    = req.model    or settings.get("model")
+    if provider not in VALID_PROVIDERS:
+        raise HTTPException(status_code=400, detail=f"Unknown provider '{provider}'")
+    if not req.question.strip():
+        raise HTTPException(status_code=400, detail="Empty question")
 
     async def generate():
         full_answer  = ""
@@ -286,7 +311,7 @@ async def chat_stream(req: ChatRequest):
         jurisdiction = "Both"
         confidence   = "GROUNDED"
 
-        def format_sse(event: str, data: any) -> str:
+        def format_sse(event: str, data: Any) -> str:
             return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
         # ── Step 0: History first (so the prompt never duplicates the

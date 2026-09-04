@@ -61,6 +61,11 @@ Request (`Content-Type: application/json`):
 | `model` | no | model id; falls back to server default for the provider |
 | `jurisdiction_override` | no | `India` \| `UAE` \| `Both` \| null (auto-detect) |
 
+Validation: unknown `provider` → `400`; empty `question` → `400`;
+`question` ≤ 8000 chars, `session_id` ≤ 128 chars, `model` ≤ 256 chars
+(oversize → `422`). Aborting generation is client-side: cancel the
+`fetch` (server stops streaming to the closed connection).
+
 Response: `Content-Type: text/event-stream`. Event sequence is always
 `sources` → zero or more `token` → `done` (or `error` → `done`).
 `: ping` comment lines are keep-alives — ignore them.

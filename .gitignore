@@ -5,6 +5,8 @@ __pycache__/
 .env
 settings.json
 data/*.db
+data/*.db-shm
+data/*.db-wal
 data/lexrag.db
 qdrant_storage/
 data/raw/*.pdf
