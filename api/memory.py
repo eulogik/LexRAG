@@ -25,7 +25,8 @@ def setup_db():
             "content": str,
             "sources": str,
             "timestamp": str,
-            "provider": str
+            "provider": str,
+            "model": str
         }, pk="id")
     if "sessions" not in db.table_names():
         db["sessions"].create({
@@ -69,7 +70,7 @@ def get_session_name(session_id: str) -> str:
     except Exception:
         return session_id[:8]
 
-def save_message(session_id: str, role: str, content: str, sources: list = None, provider: str = None):
+def save_message(session_id: str, role: str, content: str, sources: list = None, provider: str = None, model: str = None):
     db = setup_db()
     db["conversations"].insert({
         "session_id": session_id,
@@ -77,7 +78,8 @@ def save_message(session_id: str, role: str, content: str, sources: list = None,
         "content": content,
         "sources": json.dumps(sources) if sources else "[]",
         "timestamp": datetime.now().isoformat(),
-        "provider": provider
+        "provider": provider,
+        "model": model
     })
 
 def get_history(session_id: str, limit: int = 10):
@@ -107,6 +109,7 @@ def get_history_full(session_id: str, limit: int = 100):
             "content": r["content"],
             "sources": sources,
             "provider": r.get("provider"),
+            "model": r.get("model"),
             "timestamp": r.get("timestamp")
         })
     return result

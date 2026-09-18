@@ -74,7 +74,7 @@ def strip_think_tags(token: str, in_think: bool) -> tuple[str, bool]:
 
 # ─── Citation patterns for UAE and India ─────────────────────────────────────
 UAE_LAW_PATTERN = r"((?:Federal\s+)?(?:Decree-)?Law\s+No\.\s*(?:\(?\d+\)?)\s+of\s+\d{4})"
-INDIA_LAW_PATTERN = r"((?:Income[\s-]?Tax\s+Act|Companies\s+Act|GST\s+Act|Income[\s-]?Tax\s+Rules?|Indian\s+Penal\s+Code|Insolvency\s+and\s+Bankruptcy\s+Code),?\s+\d{4})"
+INDIA_LAW_PATTERN = r"((?:Income[\s-]?Tax\s+Act|Companies\s+Act|GST\s+Act|CGST\s+Act|SGST\s+Act|IGST\s+Act|Income[\s-]?Tax\s+Rules?|Indian\s+Penal\s+Code|Insolvency\s+and\s+Bankruptcy\s+Code),?\s+\d{4})"
 INDIA_SECTION_PATTERN = r"(Section\s+\d+[A-Z]?(?:-\s*[A-Z]+)?)"
 
 def parse_citations(text: str) -> str:

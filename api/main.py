@@ -2,11 +2,22 @@ import asyncio
 import json
 import logging
 import os
+import re
 import sys
 import tempfile
 import uuid
 from contextlib import asynccontextmanager
 from typing import Any, Literal, Optional
+
+def _atomic_write(path: str, data: dict):
+    """Write JSON atomically: temp file + os.replace."""
+    dirname = os.path.dirname(path)
+    with tempfile.NamedTemporaryFile("w", dir=dirname, delete=False, suffix=".tmp") as tf:
+        json.dump(data, tf, indent=2)
+        tf.flush()
+        os.fsync(tf.fileno())
+        tmp_name = tf.name
+    os.replace(tmp_name, path)
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -200,8 +211,7 @@ async def set_provider_key(provider_id: str, req: ProviderKeyRequest):
         keys[provider_id] = req.key.strip()
     else:
         keys.pop(provider_id, None)
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(settings, f, indent=2)
+    _atomic_write(SETTINGS_FILE, settings)
     return {"success": True, "configured": provider_id in keys}
 
 
@@ -222,8 +232,7 @@ async def refresh_provider_models(provider_id: str):
     active = settings.setdefault("active_models", {})
     if provider_id not in active:
         active[provider_id] = [m["id"] for m in models[:10]]
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(settings, f, indent=2)
+    _atomic_write(SETTINGS_FILE, settings)
     return {"success": True, "count": len(models), "models": models[:50]}
 
 
@@ -241,16 +250,26 @@ async def add_custom_provider(req: CustomProviderRequest):
     pid = re.sub(r"[^a-z0-9_-]", "", req.id.strip().lower())
     if not pid:
         raise HTTPException(status_code=400, detail="Provider id must be slug-like")
-    if not req.base_url.strip().startswith(("http://", "https://")):
+    base = req.base_url.strip().rstrip("/")
+    if not base.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="base_url must be http(s)")
+    # SSRF guard: block private/loopback unless explicitly allowed
+    allow_custom = os.environ.get("LEXRAG_ALLOW_CUSTOM_PROVIDERS", "true").lower() == "true"
+    if not allow_custom:
+        # Only allow public IPs / hostnames (no localhost, RFC1918, link-local)
+        from urllib.parse import urlparse
+        parsed = urlparse(base)
+        host = parsed.hostname or ""
+        if host in ("localhost", "127.0.0.1", "::1") or \
+           host.startswith(("10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.", "192.168.", "169.254.")):
+            raise HTTPException(status_code=403, detail="Private endpoints blocked; set LEXRAG_ALLOW_CUSTOM_PROVIDERS=true to override")
     settings = load_settings()
     customs = settings.setdefault("custom_providers", [])
     customs[:] = [c for c in customs if c.get("id") != pid]
-    customs.append({"id": pid, "name": req.name.strip() or pid, "base_url": req.base_url.strip().rstrip("/")})
+    customs.append({"id": pid, "name": req.name.strip() or pid, "base_url": base})
     if req.key.strip():
         settings.setdefault("provider_keys", {})[pid] = req.key.strip()
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(settings, f, indent=2)
+    _atomic_write(SETTINGS_FILE, settings)
     return {"success": True, "id": pid}
 
 
@@ -264,14 +283,30 @@ async def delete_custom_provider(provider_id: str):
     settings["custom_providers"] = kept
     (settings.get("provider_keys") or {}).pop(provider_id, None)
     (settings.get("discovered_models") or {}).pop(provider_id, None)
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(settings, f, indent=2)
+    _atomic_write(SETTINGS_FILE, settings)
     return {"success": True}
+
+
+@app.post("/api/providers/openrouter/free-models")
+async def populate_free_openrouter_models():
+    """Auto-fetch and activate free OpenRouter models (kills catalog rot for free tier)."""
+    settings = load_settings()
+    from api.providers import auto_populate_free_models
+    try:
+        updated = await auto_populate_free_models(settings)
+        _atomic_write(SETTINGS_FILE, updated)
+        free_count = len(updated.get("discovered_models", {}).get("openrouter", {}).get("models", []))
+        return {"success": True, "free_models": free_count, "activated": updated.get("active_models", {}).get("openrouter", [])}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to fetch free models: {e}")
 
 # ─── API: Settings ───────────────────────────────────────────────────────────
 @app.get("/api/settings")
 def get_settings_endpoint():
     return public_settings(load_settings())
+
+# Keys that clients must NEVER write via /api/settings (use dedicated endpoints)
+_SETTINGS_WRITE_BLOCKLIST = {"provider_keys", "custom_providers", "discovered_models"}
 
 @app.post("/api/settings")
 async def update_settings_endpoint(request: Request):
@@ -283,11 +318,10 @@ async def update_settings_endpoint(request: Request):
             current.setdefault(deep_key, {}).update(data[deep_key])
             del data[deep_key]
     for k, v in data.items():
-        if k in DEFAULT_SETTINGS:
+        if k in DEFAULT_SETTINGS and k not in _SETTINGS_WRITE_BLOCKLIST:
             current[k] = v
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(current, f, indent=2)
-    return current
+    _atomic_write(SETTINGS_FILE, current)
+    return public_settings(current)
 
 # ─── API: Sessions ────────────────────────────────────────────────────────────
 @app.get("/api/sessions")
@@ -306,6 +340,41 @@ def api_get_session(session_id: str):
 def api_delete_session(session_id: str):
     delete_session(session_id)
     return {"success": True}
+
+
+@app.get("/api/sessions/{session_id}/export")
+def api_export_session(session_id: str, format: str = "markdown"):
+    """Export a conversation as markdown or JSON."""
+    from api.memory import get_history_full, get_session_name
+    name = get_session_name(session_id)
+    messages = get_history_full(session_id)
+    if format == "json":
+        return {"session_id": session_id, "name": name, "messages": messages}
+    # Markdown
+    lines = [f"# {name}", f"Session: {session_id}", ""]
+    for msg in messages:
+        role = "👤 You" if msg["role"] == "user" else "🤖 LexRAG"
+        model_info = f" ({msg.get('model', '')})" if msg.get("model") else ""
+        lines.append(f"## {role}{model_info}")
+        lines.append(f"*{msg.get('timestamp', '')}*")
+        lines.append("")
+        lines.append(msg.get("content", ""))
+        lines.append("")
+        sources = msg.get("sources") or []
+        if sources:
+            lines.append("**Sources:**")
+            for s in sources:
+                title = s.get("title") or s.get("source", "Source")
+                jur = s.get("jurisdiction", "")
+                score = s.get("score")
+                url = s.get("url", "")
+                lines.append(f"- {title} [{jur}]" + (f" (score: {score})" if score else "") + (f" — {url}" if url else ""))
+            lines.append("")
+    return StreamingResponse(
+        iter(["\n".join(lines)]),
+        media_type="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="lexrag-{session_id}.md"'}
+    )
 
 # ─── API: Ingestion Endpoints (Server-Centric De-confliction) ──────────────────
 class IngestMetadata(BaseModel):
@@ -387,23 +456,25 @@ async def chat_stream(req: ChatRequest):
         sources_out  = []
         jurisdiction = "Both"
         confidence   = "GROUNDED"
+        history = []
+        session_name = req.question[:60].strip()
 
         def format_sse(event: str, data: Any) -> str:
             return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
         # ── Step 0: History first (so the prompt never duplicates the
         # current question), then persist. Name the session only once. ──
-        session_name = req.question[:60].strip()
         try:
             history = get_history(req.session_id, limit=5)
             if not history:
                 update_session_name(req.session_id, session_name)
+            else:
+                # Use stored session name for the done event
+                session_name = get_session_name(req.session_id)
             save_message(req.session_id, "user", req.question)
         except Exception as e:
             history = []
             log.warning(f"Could not persist user message: {e}")
-
-        try:
             # ── Step 1: Jurisdiction & Pings ────────────────────────────────
             # Send initial ping to confirm stream start
             yield ": ping\n\n"
@@ -461,11 +532,14 @@ async def chat_stream(req: ChatRequest):
                 {"role": "user",   "content": prompt}
             ]
 
+            # Track which model actually answered (for fallback chain)
+            model_used = []
+            
             # ── Step 5: Stream with total 90s timeout ──────────────────────
             async def stream_with_timeout():
                 t_gen_start = asyncio.get_event_loop().time()
                 first = True
-                async for token in stream_provider(messages, provider, model, settings):
+                async for token in stream_provider(messages, provider, model, settings, model_used):
                     if first:
                         log.info(f"Time to first token: {asyncio.get_event_loop().time() - t_gen_start:.3f}s")
                         first = False
@@ -517,24 +591,23 @@ async def chat_stream(req: ChatRequest):
 
             # ── Step 6: Citation links + save answer ───────────────────────
             full_answer = parse_citations(full_answer)
+            actual_model = model_used[0] if model_used else model
             try:
                 save_message(req.session_id, "assistant", full_answer,
-                             sources=sources_out, provider=provider)
+                             sources=sources_out, provider=provider, model=actual_model)
             except Exception as e:
                 log.warning(f"Could not save assistant message: {e}")
 
             log.info("chat done session=%s provider=%s model=%s confidence=%s "
-                     "jurisdiction=%s sources=%d chars=%d",
-                     req.session_id[:8], provider, model, confidence,
-                     jurisdiction, len(sources_out), len(full_answer))
+                      "jurisdiction=%s sources=%d chars=%d",
+                      req.session_id[:8], provider, actual_model, confidence,
+                      jurisdiction, len(sources_out), len(full_answer))
             yield format_sse("done", {
                 "session_name": session_name,
                 "confidence":   confidence,
-                "jurisdiction": jurisdiction
+                "jurisdiction": jurisdiction,
+                "model":        actual_model
             })
-            log.info(f"chat done session={req.session_id[:8]} provider={provider} "
-                     f"model={model} confidence={confidence} jurisdiction={jurisdiction} "
-                     f"sources={len(sources_out)} chars={len(full_answer)}")
 
         except Exception as e:
             error_msg = str(e)

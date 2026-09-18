@@ -162,16 +162,54 @@ async def stream_ollama(messages: list, model: str = None, base_url: str = None)
                 except Exception:
                     pass
 
-async def stream_provider(messages: list, provider: str, model: str = None, settings: dict = None):
-    from api.providers import provider_config
+async def stream_provider(messages: list, provider: str, model: str = None, settings: dict = None, model_used: list = None):
+    from api.providers import provider_config, PROVIDER_PRESETS
     cfg = provider_config(provider, settings or {})
-    if cfg["kind"] == "ollama":
-        async for t in stream_ollama(messages, model, cfg["base_url"]): yield t
-        return
-    extra = {"HTTP-Referer": "https://github.com/eulogik/LexRAG"} if provider == "openrouter" else None
-    async for t in stream_openai_compatible(
-            messages, model or _default_model(provider), cfg["base_url"],
-            cfg["api_key"], extra_headers=extra, label=cfg["label"]): yield t
+    
+    # Build fallback chain: requested model first, then preset fallback_chain (excluding requested)
+    preset = PROVIDER_PRESETS.get(provider, {})
+    fallback_chain = preset.get("fallback_chain", [])
+    requested = model or _default_model(provider)
+    chain = [requested] + [m for m in fallback_chain if m != requested]
+    
+    last_error = None
+    for attempt_model in chain:
+        try:
+            if cfg["kind"] == "ollama":
+                async for t in stream_ollama(messages, attempt_model, cfg["base_url"]): yield t
+                if model_used is not None: model_used.append(attempt_model)
+                return
+            extra = {"HTTP-Referer": "https://github.com/eulogik/LexRAG"} if provider == "openrouter" else None
+            async for t in stream_openai_compatible(
+                    messages, attempt_model, cfg["base_url"],
+                    cfg["api_key"], extra_headers=extra, label=cfg["label"]): yield t
+            # Success
+            if model_used is not None: model_used.append(attempt_model)
+            return
+        except Exception as e:
+            last_error = e
+            err_str = str(e).lower()
+            # Fallback on rate limit (429), quota, overloaded, or 5xx server errors
+            retryable = (
+                "429" in err_str or
+                "rate limit" in err_str or
+                "quota" in err_str or
+                "overloaded" in err_str or
+                "temporarily" in err_str or
+                "500" in err_str or
+                "502" in err_str or
+                "503" in err_str or
+                "504" in err_str or
+                "upstream error" in err_str
+            )
+            if retryable:
+                log.warning(f"{provider} model {attempt_model} failed ({e}), trying fallback...")
+                continue
+            # Non-retryable error — bubble up
+            raise
+    
+    # All fallbacks exhausted
+    raise last_error or Exception(f"All fallback models exhausted for {provider}")
 
 
 def _default_model(provider: str) -> str:

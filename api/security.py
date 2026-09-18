@@ -13,6 +13,7 @@ API_KEY = os.environ.get("LEXRAG_API_KEY", "").strip()
 OPEN_PATH_PREFIXES = ("/health", "/ui", "/marketing", "/openapi.json", "/docs", "/redoc")
 
 RATE_LIMITS = [
+    ("/api/providers/", 10, 60.0),   # key set/refresh — most sensitive
     ("/api/chat", 60, 60.0),
     ("/api/ingest", 30, 60.0),
     ("/api/", 300, 60.0),

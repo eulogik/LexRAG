@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime, timezone
 
 PROVIDER_PRESETS = {
@@ -11,6 +12,11 @@ PROVIDER_PRESETS = {
             {"id": "openai/gpt-oss-20b", "name": "GPT-OSS 20B (Fast)"},
             {"id": "qwen/qwen3.6-27b", "name": "Qwen3.6 27B (Reasoning)"},
         ],
+        "fallback_chain": [
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+            "qwen/qwen3.6-27b",
+        ],
     },
     "openrouter": {
         "label": "OpenRouter", "kind": "openai",
@@ -21,6 +27,12 @@ PROVIDER_PRESETS = {
             {"id": "nvidia/nemotron-3-super-120b-a12b:free", "name": "Nemotron-3 Super 120B (Free)"},
             {"id": "nvidia/nemotron-3-ultra-550b-a55b:free", "name": "Nemotron-3 Ultra 550B (Free)"},
             {"id": "z-ai/glm-5.2:free", "name": "GLM-5.2 (Free)"},
+        ],
+        "fallback_chain": [
+            "google/gemma-4-31b-it:free",
+            "nvidia/nemotron-3-super-120b-a12b:free",
+            "nvidia/nemotron-3-ultra-550b-a55b:free",
+            "z-ai/glm-5.2:free",
         ],
     },
     "ollama": {
@@ -187,3 +199,63 @@ def public_settings(settings: dict) -> dict:
 
 def stamp_discovery() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+# ─── Free Model Auto-Population (OpenRouter) ─────────────────────────────────
+FREE_MODEL_KEYWORDS = (":free", "free-", "-free", "free.")
+
+async def discover_free_models(settings: dict) -> dict:
+    """
+    Fetch all models from OpenRouter, filter for free tier, and return
+    a dict suitable for discovered_models: {provider: {fetched_at, models: [...]}}
+    """
+    import httpx
+    cfg = provider_config("openrouter", settings)
+    headers = {}
+    if cfg["api_key"]:
+        headers["Authorization"] = f"Bearer {cfg['api_key']}"
+    headers["HTTP-Referer"] = "https://github.com/eulogik/LexRAG"
+    
+    url = cfg["base_url"] + "/models"
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get(url, headers=headers)
+        r.raise_for_status()
+        payload = r.json()
+    
+    all_models = parse_openai_models(payload)
+    # Filter: free models have ":free" suffix or "free" in name
+    free_models = [
+        m for m in all_models
+        if any(kw in m["id"].lower() for kw in FREE_MODEL_KEYWORDS)
+    ]
+    # Sort: prioritize models with known good performance
+    priority_order = {
+        "nvidia/nemotron-3-super-120b-a12b:free": 0,
+        "google/gemma-4-31b-it:free": 1,
+        "z-ai/glm-5.2:free": 2,
+        "nvidia/nemotron-3-ultra-550b-a55b:free": 3,
+    }
+    free_models.sort(key=lambda m: priority_order.get(m["id"], 999))
+    
+    return {
+        "openrouter": {
+            "fetched_at": stamp_discovery(),
+            "models": free_models
+        }
+    }
+
+
+async def auto_populate_free_models(settings: dict) -> dict:
+    """
+    Fetch free models from OpenRouter and merge into settings.discovered_models.
+    Returns the updated settings.
+    """
+    free_data = await discover_free_models(settings)
+    discovered = settings.setdefault("discovered_models", {})
+    for pid, data in free_data.items():
+        discovered[pid] = data
+        # Auto-activate top 5 free models
+        active = settings.setdefault("active_models", {})
+        if pid not in active:
+            active[pid] = [m["id"] for m in data["models"][:5]]
+    return settings

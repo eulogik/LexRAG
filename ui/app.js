@@ -262,8 +262,29 @@ function renderSessions(sessions) {
       if (s.session_id === currentSessionId) newChat();
     };
 
+    const exp = document.createElement('button');
+    exp.className = 'session-exp';
+    exp.title = 'Export (Markdown)';
+    exp.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+    exp.onclick = async ex => {
+      ex.stopPropagation();
+      try {
+        const resp = await fetch(`/api/sessions/${s.session_id}/export`, { headers: authHeaders() });
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `lexrag-${s.session_id}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        alert('Export failed: ' + e.message);
+      }
+    };
+
     item.onclick = () => loadSession(s.session_id);
     item.appendChild(name);
+    item.appendChild(exp);
     item.appendChild(del);
     el.appendChild(item);
   });
@@ -310,7 +331,7 @@ async function loadSession(id) {
         if (outer) outer.dataset.question = lastUserQuestion;
         const sources = Array.isArray(msg.sources) ? msg.sources : [];
         const confidence = sources.length ? 'GROUNDED' : 'SYNTHESIZED';
-        renderMetaBar(outer, { sources, confidence, jurisdiction: msgJur });
+        renderMetaBar(outer, { sources, confidence, jurisdiction: msgJur, model: msg.model });
       }
     });
     scrollBottom(true);
@@ -620,6 +641,7 @@ function renderMetaBar(outer, meta) {
   const confidence  = meta.confidence  || 'GROUNDED';
   const jurisdiction = meta.jurisdiction || 'Both';
   const sources     = meta.sources      || [];
+  const model       = meta.model       || '';
   const isGeneral   = (confidence === 'GENERAL' || confidence === 'SYNTHESIZED');
 
   const bar = document.createElement('div');
@@ -644,6 +666,14 @@ function renderMetaBar(outer, meta) {
   jurBadge.className = 'badge-jur';
   jurBadge.textContent = `${jurIcon} ${jurisdiction}`;
   bar.appendChild(jurBadge);
+
+  // Model badge
+  if (model) {
+    const modelBadge = document.createElement('span');
+    modelBadge.className = 'badge-model';
+    modelBadge.textContent = model.split('/').pop().split(':')[0];
+    bar.appendChild(modelBadge);
+  }
 
   // Action buttons group (Copy + Retry) — icon-only ghost
   const actionGroup = document.createElement('div');
@@ -898,6 +928,32 @@ function populateModelsTab() {
         alert('Refresh failed: ' + e.message);
       }
     };
+    head.appendChild(refresh);
+
+    // OpenRouter-specific: Populate Free Models button
+    if (prov === 'openrouter') {
+      const freeBtn = document.createElement('button');
+      freeBtn.className = 'mini-btn';
+      freeBtn.textContent = 'Populate Free';
+      freeBtn.title = 'Auto-fetch and activate all free OpenRouter models';
+      freeBtn.onclick = async () => {
+        freeBtn.disabled = true;
+        freeBtn.textContent = '…';
+        try {
+          const res = await api('/api/providers/openrouter/free-models', { method: 'POST' });
+          const fresh = await api('/api/models');
+          const psettings = await api('/api/settings');
+          allModels = fresh;
+          settings = { ...settings, ...psettings };
+          populateSettings();
+          renderModelDropdown();
+          alert(`Activated ${res.free_models} free models`);
+        } catch (e) {
+          alert('Populate free failed: ' + e.message);
+        }
+      };
+      head.appendChild(freeBtn);
+    }
     head.appendChild(refresh);
     card.appendChild(head);
 

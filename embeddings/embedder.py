@@ -2,6 +2,7 @@ import json
 import os
 import threading
 import uuid
+import hashlib
 
 from fastembed import SparseTextEmbedding, TextEmbedding
 from qdrant_client import QdrantClient
@@ -70,9 +71,16 @@ class LexEmbedder:
         sparse_vec = list(self.sparse_model.embed([text]))[0]
         return dense_vec, sparse_vec
 
+    def _make_point_id(self, metadata: dict) -> str:
+        """Deterministic ID from source + chunk_index + text hash (dedup-safe)."""
+        source = metadata.get("source", "unknown")
+        chunk = metadata.get("chunk_index", 0)
+        text_hash = hashlib.md5(metadata.get("text", "")[:500].encode()).hexdigest()[:8]
+        return f"{source}_{chunk}_{text_hash}"
+
     def upsert_document(self, text: str, metadata: dict):
         self.ensure_collection()
-        doc_id = str(uuid.uuid4())
+        doc_id = self._make_point_id(metadata)
         dense_vec, sparse_vec = self.embed(text)
         
         sparse_vector_data = {

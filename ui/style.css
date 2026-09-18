@@ -201,7 +201,7 @@ body {
 }
 .session-item.active .session-name { color: var(--fg); font-weight: 600; }
 
-.session-del {
+.session-del, .session-exp {
   opacity: 0;
   background: none;
   border: none;
@@ -212,8 +212,10 @@ body {
   border-radius: 4px;
   transition: opacity var(--transition), color var(--transition);
 }
-.session-item:hover .session-del { opacity: 1; }
-.session-del:hover { color: var(--fg); }
+.session-item:hover .session-del,
+.session-item:hover .session-exp { opacity: 1; }
+.session-del:hover,
+.session-exp:hover { color: var(--fg); }
 
 .sidebar-bottom {
   padding: 0.75rem 1rem;
@@ -424,6 +426,23 @@ body {
   border-radius: 50px;
   border: 1px solid var(--border-soft);
   color: var(--fg-muted);
+}
+
+.badge-model {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 50px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: rgba(138, 101, 17, 0.08);
+}
+[data-theme="dark"] .badge-model {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(217, 164, 65, 0.12);
 }
 
 .disclaimer-btn {
