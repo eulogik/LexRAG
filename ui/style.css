@@ -1008,6 +1008,26 @@ body {
   color: var(--fg-muted);
   line-height: 1.5;
 }
+
+.provider-view-toggle {
+  display: flex;
+  gap: 1rem;
+  padding: 0.5rem 0.9rem;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--fg-2);
+}
+.provider-view-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+.provider-view-toggle input[type="radio"] {
+  accent-color: var(--accent);
+}
+
 .model-provider-group {
   padding: 1rem 1.5rem 0;
 }

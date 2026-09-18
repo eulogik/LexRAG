@@ -1005,19 +1005,36 @@ function populateModelsTab() {
     search.placeholder = 'Filter models…';
     card.appendChild(search);
 
+    // Show active / all toggle
+    const viewToggle = document.createElement('div');
+    viewToggle.className = 'provider-view-toggle';
+    viewToggle.innerHTML = `
+      <label class="view-toggle-opt">
+        <input type="radio" name="view-${prov}" value="active" checked> Active only
+      </label>
+      <label class="view-toggle-opt">
+        <input type="radio" name="view-${prov}" value="all"> All discovered (${models.length})
+      </label>
+    `;
+    card.appendChild(viewToggle);
+
     const body = document.createElement('div');
     body.className = 'provider-model-list';
     const activeSet = new Set(activeModels[prov] || models.map(m => m.id));
 
-    const renderRows = (filter) => {
+    const renderRows = (filter, showAll) => {
       body.innerHTML = '';
-      const shown = models.filter(m =>
+      const source = showAll ? models : models.filter(m => activeSet.has(m.id));
+      const shown = source.filter(m =>
         !filter || m.id.toLowerCase().includes(filter) || (m.name || '').toLowerCase().includes(filter));
       if (!shown.length) {
-        body.innerHTML = '<div class="provider-empty">No models — hit Refresh to fetch the live list, or add one under Custom.</div>';
+        body.innerHTML = showAll
+          ? '<div class="provider-empty">No models match your filter.</div>'
+          : '<div class="provider-empty">No active models. Switch to "All discovered" or add some via Refresh / Custom.</div>';
         return;
       }
       shown.forEach(m => {
+        const isActive = activeSet.has(m.id);
         const row = document.createElement('div');
         row.className = 'model-toggle-row';
 
@@ -1031,11 +1048,11 @@ function populateModelsTab() {
 
         const sw = document.createElement('label');
         sw.className = 'toggle-switch';
-        sw.title = activeSet.has(m.id) ? 'Active — click to deactivate' : 'Inactive — click to activate';
+        sw.title = isActive ? 'Active — click to deactivate' : 'Inactive — click to activate';
 
         const inp = document.createElement('input');
         inp.type    = 'checkbox';
-        inp.checked = activeSet.has(m.id);
+        inp.checked = isActive;
         inp.dataset.provider = prov;
         inp.dataset.modelId  = m.id;
 
@@ -1058,8 +1075,17 @@ function populateModelsTab() {
         body.appendChild(row);
       });
     };
-    search.oninput = () => renderRows(search.value.trim().toLowerCase());
-    renderRows('');
+
+    // Wire view toggle
+    viewToggle.querySelectorAll('input[type="radio"]').forEach(radio => {
+      radio.onchange = () => renderRows(search.value.trim().toLowerCase(), radio.value === 'all');
+    });
+
+    search.oninput = () => {
+      const showAll = viewToggle.querySelector('input[value="all"]:checked');
+      renderRows(search.value.trim().toLowerCase(), !!showAll);
+    };
+    renderRows('', false);
     card.appendChild(body);
 
     list.appendChild(card);
