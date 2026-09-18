@@ -28,6 +28,13 @@ def setup_db():
             "provider": str,
             "model": str
         }, pk="id")
+    # Migration: add model column if missing (added 2026-09-18)
+    try:
+        cols = set(db["conversations"].columns_dict.keys())
+        if "model" not in cols:
+            db.execute("ALTER TABLE conversations ADD COLUMN model TEXT")
+    except Exception:
+        pass
     if "sessions" not in db.table_names():
         db["sessions"].create({
             "session_id": str,
